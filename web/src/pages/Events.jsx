@@ -1,0 +1,155 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Plus, Search, Calendar, MapPin, Users } from 'lucide-react';
+import EventForm from '../components/EventForm';
+import { format } from 'date-fns'; // I'll need to install date-fns or just use native Date
+
+const Events = () => {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    // Fetch events with participants
+    // Note: The syntax depends on foreign key names. 
+    // Assuming standard naming, it might be event_participants(people(name))
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        event_participants (
+          people (
+            id,
+            name
+          )
+        )
+      `)
+      .order('event_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching events:', error);
+    } else {
+      setEvents(data);
+    }
+    setLoading(false);
+  };
+
+  const handleEventAdded = (newEvent) => {
+    fetchEvents(); // Refresh to get participants properly
+    setIsModalOpen(false);
+  };
+
+  const filteredEvents = events.filter(event => 
+    event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">事件记录</h1>
+          <p className="mt-1 text-sm text-gray-500">记录您的互动与共同经历。</p>
+        </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+          添加事件
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            placeholder="搜索事件..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Events List */}
+      {loading ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      ) : filteredEvents.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <p className="text-gray-500">暂无事件记录，请记录您的第一次互动！</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredEvents.map((event) => (
+            <div key={event.id} className="bg-white shadow rounded-lg border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row justify-between md:items-start">
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <h3 className="text-xl font-semibold text-gray-900">{event.name}</h3>
+                    {event.type && (
+                      <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {event.type}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
+                    <div className="flex items-center">
+                      <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                      {new Date(event.event_date).toLocaleDateString()}
+                    </div>
+                    {event.location && (
+                      <div className="flex items-center">
+                        <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                        {event.location}
+                      </div>
+                    )}
+                  </div>
+
+                  {event.description && (
+                    <p className="mt-3 text-gray-600 text-sm">{event.description}</p>
+                  )}
+
+                  {/* Participants */}
+                  <div className="mt-4 flex items-center flex-wrap gap-2">
+                    <Users className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                    {event.event_participants && event.event_participants.length > 0 ? (
+                      event.event_participants.map((ep) => (
+                        <span key={ep.people.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                          {ep.people.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">无参与人</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Event Modal */}
+      {isModalOpen && (
+         <EventForm onClose={() => setIsModalOpen(false)} onEventAdded={handleEventAdded} />
+      )}
+    </div>
+  );
+};
+
+export default Events;
