@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Search, Calendar, MapPin, Users } from 'lucide-react';
+import { Plus, Search, Calendar, MapPin, Users, Edit } from 'lucide-react';
 import EventForm from '../components/EventForm';
-import { format } from 'date-fns'; // I'll need to install date-fns or just use native Date
 
 const Events = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -16,9 +16,6 @@ const Events = () => {
 
   const fetchEvents = async () => {
     setLoading(true);
-    // Fetch events with participants
-    // Note: The syntax depends on foreign key names. 
-    // Assuming standard naming, it might be event_participants(people(name))
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -40,9 +37,24 @@ const Events = () => {
     setLoading(false);
   };
 
-  const handleEventAdded = (newEvent) => {
-    fetchEvents(); // Refresh to get participants properly
+  const handleEventUpdated = (updatedEvent) => {
+    if (editingEvent) {
+        setEvents(events.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+    } else {
+        setEvents([updatedEvent, ...events]);
+    }
     setIsModalOpen(false);
+    setEditingEvent(null);
+  };
+
+  const openAddModal = () => {
+    setEditingEvent(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (event) => {
+    setEditingEvent(event);
+    setIsModalOpen(true);
   };
 
   const filteredEvents = events.filter(event => 
@@ -59,7 +71,7 @@ const Events = () => {
           <p className="mt-1 text-sm text-gray-500">记录您的互动与共同经历。</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={openAddModal}
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
@@ -95,7 +107,17 @@ const Events = () => {
       ) : (
         <div className="space-y-4">
           {filteredEvents.map((event) => (
-            <div key={event.id} className="bg-white shadow rounded-lg border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div key={event.id} className="bg-white shadow rounded-lg border border-gray-100 p-6 hover:shadow-md transition-shadow relative group">
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => openEditModal(event)}
+                  className="p-1 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600"
+                  title="编辑"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+              </div>
+              
               <div className="flex flex-col md:flex-row justify-between md:items-start">
                 <div className="flex-1">
                   <div className="flex items-center">
@@ -144,9 +166,13 @@ const Events = () => {
         </div>
       )}
 
-      {/* Add Event Modal */}
+      {/* Add/Edit Event Modal */}
       {isModalOpen && (
-         <EventForm onClose={() => setIsModalOpen(false)} onEventAdded={handleEventAdded} />
+         <EventForm 
+           onClose={() => setIsModalOpen(false)} 
+           onEventUpdated={handleEventUpdated}
+           initialData={editingEvent}
+         />
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Plus, Trash, Search } from 'lucide-react';
 
-const EventForm = ({ onClose, onEventAdded }) => {
+const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
   const [formData, setFormData] = useState({
     name: '',
     event_date: new Date().toISOString().split('T')[0],
@@ -15,14 +15,42 @@ const EventForm = ({ onClose, onEventAdded }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [peopleSearch, setPeopleSearch] = useState('');
+  const isEditMode = !!initialData;
 
   useEffect(() => {
-    const fetchPeople = async () => {
-      const { data } = await supabase.from('people').select('id, name').order('name');
-      if (data) setPeople(data);
-    };
     fetchPeople();
-  }, []);
+    if (initialData) {
+      setFormData({
+        name: initialData.name,
+        event_date: initialData.event_date ? initialData.event_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        type: initialData.type || '',
+        location: initialData.location || '',
+        description: initialData.description || '',
+      });
+      // Assuming initialData comes with participants or we fetch them
+      if (initialData.event_participants) {
+        setSelectedPeople(initialData.event_participants.map(ep => ep.people));
+      } else {
+        fetchParticipants(initialData.id);
+      }
+    }
+  }, [initialData]);
+
+  const fetchPeople = async () => {
+    const { data } = await supabase.from('people').select('id, name').order('name');
+    if (data) setPeople(data);
+  };
+
+  const fetchParticipants = async (eventId) => {
+    const { data } = await supabase
+      .from('event_participants')
+      .select('people(id, name)')
+      .eq('event_id', eventId);
+    
+    if (data) {
+      setSelectedPeople(data.map(item => item.people));
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,34 +67,57 @@ const EventForm = ({ onClose, onEventAdded }) => {
   const updateRelationships = async (personIds) => {
     if (personIds.length < 2) return;
 
+    // Fetch tags for all involved people to check for common tags
+    const { data: personTags } = await supabase
+      .from('person_tags')
+      .select('person_id, tag_id')
+      .in('person_id', personIds);
+
+    // Map person_id -> Set of tag_ids
+    const tagsMap = {};
+    if (personTags) {
+      personTags.forEach(pt => {
+        if (!tagsMap[pt.person_id]) tagsMap[pt.person_id] = new Set();
+        tagsMap[pt.person_id].add(pt.tag_id);
+      });
+    }
+
     for (let i = 0; i < personIds.length; i++) {
         for (let j = i + 1; j < personIds.length; j++) {
             const p1 = personIds[i];
             const p2 = personIds[j];
             const [personA, personB] = p1 < p2 ? [p1, p2] : [p2, p1];
 
-            const { data: existing } = await supabase
-                .from('relationships')
-                .select('id, strength')
-                .eq('person_a_id', personA)
-                .eq('person_b_id', personB)
-                .maybeSingle();
+            // Check for common tags
+            const tagsA = tagsMap[personA] || new Set();
+            const tagsB = tagsMap[personB] || new Set();
+            const commonTags = [...tagsA].filter(tagId => tagsB.has(tagId));
 
-            if (existing) {
-                 await supabase
+            // Only update relationship if they have at least one common tag
+            if (commonTags.length > 0) {
+                const { data: existing } = await supabase
                     .from('relationships')
-                    .update({ strength: existing.strength + 1 })
-                    .eq('id', existing.id);
-            } else {
-                await supabase
-                    .from('relationships')
-                    .insert({
-                        person_a_id: personA,
-                        person_b_id: personB,
-                        type: 'Acquaintance', 
-                        strength: 1,
-                        source: 'event'
-                    });
+                    .select('id, strength')
+                    .eq('person_a_id', personA)
+                    .eq('person_b_id', personB)
+                    .maybeSingle();
+
+                if (existing) {
+                     await supabase
+                        .from('relationships')
+                        .update({ strength: existing.strength + 1 })
+                        .eq('id', existing.id);
+                } else {
+                    await supabase
+                        .from('relationships')
+                        .insert({
+                            person_a_id: personA,
+                            person_b_id: personB,
+                            type: 'Based on Tags', // Or specific tag name if just one? Keep it generic for now.
+                            strength: 1,
+                            source: 'event+tag'
+                        });
+                }
             }
         }
     }
@@ -84,18 +135,34 @@ const EventForm = ({ onClose, onEventAdded }) => {
     }
 
     try {
-      // 1. Create Event
-      const { data: eventData, error: eventError } = await supabase
-        .from('events')
-        .insert([formData])
-        .select()
-        .single();
+      let eventId;
 
-      if (eventError) throw eventError;
+      if (isEditMode) {
+        // Update Event
+        const { error: updateError } = await supabase
+          .from('events')
+          .update(formData)
+          .eq('id', initialData.id);
+        
+        if (updateError) throw updateError;
+        eventId = initialData.id;
+      } else {
+        // Create Event
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .insert([formData])
+          .select()
+          .single();
 
-      const eventId = eventData.id;
+        if (eventError) throw eventError;
+        eventId = eventData.id;
+      }
 
-      // 2. Add Participants
+      // Update Participants (Delete all and re-insert for simplicity)
+      if (isEditMode) {
+        await supabase.from('event_participants').delete().eq('event_id', eventId);
+      }
+
       if (selectedPeople.length > 0) {
         const participantsData = selectedPeople.map(p => ({
           event_id: eventId,
@@ -108,11 +175,28 @@ const EventForm = ({ onClose, onEventAdded }) => {
 
         if (partError) throw partError;
         
-        // 3. Update Relationships
-        await updateRelationships(selectedPeople.map(p => p.id));
+        // Update Relationships (Only on create for now to avoid complexity of reducing strength on remove)
+        if (!isEditMode) {
+            await updateRelationships(selectedPeople.map(p => p.id));
+        }
       }
 
-      onEventAdded(eventData);
+      // Fetch final event data
+      const { data: finalEvent } = await supabase
+        .from('events')
+        .select(`
+            *,
+            event_participants (
+            people (
+                id,
+                name
+            )
+            )
+        `)
+        .eq('id', eventId)
+        .single();
+
+      onEventUpdated(finalEvent);
       onClose();
     } catch (err) {
       setError(err.message);
@@ -130,7 +214,9 @@ const EventForm = ({ onClose, onEventAdded }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">添加新事件</h2>
+          <h2 className="text-xl font-semibold text-gray-900">
+            {isEditMode ? '编辑事件' : '添加新事件'}
+          </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <X size={24} />
           </button>

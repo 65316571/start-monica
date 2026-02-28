@@ -11,6 +11,18 @@ const Dashboard = () => {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
+    const storedShowGraph = localStorage.getItem('monica_show_graph');
+    // Default to true if not set, or use stored value
+    if (storedShowGraph !== null) {
+      setShowGraph(storedShowGraph === 'true');
+    } else {
+      setShowGraph(true);
+    }
+  }, []);
+
+  const [showGraph, setShowGraph] = useState(true);
+
+  useEffect(() => {
     fetchData();
     
     // Update dimensions on resize
@@ -118,49 +130,51 @@ const Dashboard = () => {
       </div>
 
       {/* Relationship Graph */}
-      <div className="flex-1 bg-white shadow rounded-lg overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">人际关系网络</h3>
-        </div>
-        <div ref={containerRef} className="flex-1 relative min-h-[500px]">
-          {!loading && graphData.nodes.length > 0 ? (
-            <ForceGraph2D
-              width={dimensions.width}
-              height={dimensions.height}
-              graphData={graphData}
-              nodeLabel="name"
-              nodeAutoColorBy="group"
-              linkDirectionalParticles={2}
-              linkDirectionalParticleSpeed={d => d.value * 0.001}
-              nodeCanvasObject={(node, ctx, globalScale) => {
-                const label = node.name;
-                const fontSize = 12/globalScale;
-                ctx.font = `${fontSize}px Sans-Serif`;
-                const textWidth = ctx.measureText(label).width;
-                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); // some padding
+      {showGraph && (
+        <div className="flex-1 bg-white shadow rounded-lg overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">人际关系网络</h3>
+          </div>
+          <div ref={containerRef} className="flex-1 relative min-h-[500px]">
+            {!loading && graphData.nodes.length > 0 ? (
+              <ForceGraph2D
+                width={dimensions.width}
+                height={dimensions.height}
+                graphData={graphData}
+                nodeLabel="name"
+                nodeAutoColorBy="group"
+                linkDirectionalParticles={2}
+                linkDirectionalParticleSpeed={d => d.value * 0.001}
+                nodeCanvasObject={(node, ctx, globalScale) => {
+                  const label = node.name;
+                  const fontSize = 12/globalScale;
+                  ctx.font = `${fontSize}px Sans-Serif`;
+                  const textWidth = ctx.measureText(label).width;
+                  const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); // some padding
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
+                  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                  ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
 
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = node.color || '#3b82f6'; // Default blue
-                ctx.fillText(label, node.x, node.y);
-                
-                // Draw circle
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
-                ctx.strokeStyle = node.color || '#3b82f6';
-                ctx.stroke();
-              }}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-              {loading ? '正在加载图谱...' : '暂无足够数据展示关系网络。'}
-            </div>
-          )}
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.fillStyle = node.color || '#3b82f6'; // Default blue
+                  ctx.fillText(label, node.x, node.y);
+                  
+                  // Draw circle
+                  ctx.beginPath();
+                  ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
+                  ctx.strokeStyle = node.color || '#3b82f6';
+                  ctx.stroke();
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                {loading ? '正在加载图谱...' : '暂无足够数据展示关系网络。'}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

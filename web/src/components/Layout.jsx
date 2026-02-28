@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, Database, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const Layout = ({ children }) => {
@@ -10,7 +10,9 @@ const Layout = ({ children }) => {
     { name: '仪表盘', path: '/', icon: LayoutDashboard },
     { name: '人物管理', path: '/people', icon: Users },
     { name: '事件记录', path: '/events', icon: Calendar },
-    // { name: 'Settings', path: '/settings', icon: Settings },
+    { name: '标签管理', path: '/tags', icon: Tag },
+    { name: '数据管理', path: '/data', icon: Database },
+    { name: '设置中心', path: '/settings', icon: Settings },
   ];
 
   return (
