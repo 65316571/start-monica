@@ -3,6 +3,7 @@ import { ToggleLeft, ToggleRight, Save } from 'lucide-react';
 
 const Settings = () => {
   const [showGraph, setShowGraph] = useState(true);
+  const [colorByTag, setColorByTag] = useState(true);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -10,12 +11,28 @@ const Settings = () => {
     if (storedShowGraph !== null) {
       setShowGraph(storedShowGraph === 'true');
     }
+
+    const storedColorByTag = localStorage.getItem('monica_color_by_tag');
+    if (storedColorByTag !== null) {
+      setColorByTag(storedColorByTag === 'true');
+    }
   }, []);
 
-  const handleToggle = () => {
+  const handleToggleGraph = () => {
     const newValue = !showGraph;
     setShowGraph(newValue);
     localStorage.setItem('monica_show_graph', newValue);
+    saveFeedback();
+  };
+
+  const handleToggleColor = () => {
+    const newValue = !colorByTag;
+    setColorByTag(newValue);
+    localStorage.setItem('monica_color_by_tag', newValue);
+    saveFeedback();
+  };
+
+  const saveFeedback = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -43,7 +60,7 @@ const Settings = () => {
               </p>
             </div>
             <button
-              onClick={handleToggle}
+              onClick={handleToggleGraph}
               className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                 showGraph ? 'bg-blue-600' : 'bg-gray-200'
               }`}
@@ -53,6 +70,29 @@ const Settings = () => {
                 aria-hidden="true"
                 className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
                   showGraph ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between py-4 border-t border-gray-100">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">彩色标签连线</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                是否使用不同颜色区分不同标签的关系连线。
+              </p>
+            </div>
+            <button
+              onClick={handleToggleColor}
+              className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                colorByTag ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+            >
+              <span className="sr-only">Use setting</span>
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
+                  colorByTag ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Search, Calendar, MapPin, Users, Edit } from 'lucide-react';
+import { Plus, Edit, Calendar, MapPin, Users, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import EventForm from '../components/EventForm';
 
 const Events = () => {
@@ -9,10 +9,18 @@ const Events = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [years, setYears] = useState([]);
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' or 'asc'
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [sortOrder]);
+
+  const toggleSort = () => {
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -33,6 +41,9 @@ const Events = () => {
       console.error('Error fetching events:', error);
     } else {
       setEvents(data);
+      // Extract years for filter
+      const uniqueYears = [...new Set(data.map(e => new Date(e.event_date).getFullYear()))];
+      setYears(uniqueYears.sort((a, b) => b - a));
     }
     setLoading(false);
   };
@@ -57,10 +68,38 @@ const Events = () => {
     setIsModalOpen(true);
   };
 
-  const filteredEvents = events.filter(event => 
-    event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredEvents = events.filter(event => {
+    const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const eventDate = new Date(event.event_date);
+    const matchesYear = selectedYear === 'all' || eventDate.getFullYear().toString() === selectedYear;
+    const matchesMonth = selectedMonth === 'all' || (eventDate.getMonth() + 1).toString() === selectedMonth;
+
+    return matchesSearch && matchesYear && matchesMonth;
+  });
+
+  // Group events by Year-Month
+  const groupedEvents = filteredEvents.reduce((groups, event) => {
+    const date = new Date(event.event_date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    if (!groups[yearMonth]) {
+        groups[yearMonth] = [];
+    }
+    groups[yearMonth].push(event);
+    return groups;
+  }, {});
+
+  const sortedGroups = Object.keys(groupedEvents).sort((a, b) => {
+    // Custom sort for "YYYY年M月" format
+    const [yA, mA] = a.match(/\d+/g).map(Number);
+    const [yB, mB] = b.match(/\d+/g).map(Number);
+    if (sortOrder === 'desc') {
+        return yB - yA || mB - mA;
+    } else {
+        return yA - yB || mA - mB;
+    }
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -70,18 +109,36 @@ const Events = () => {
           <h1 className="text-3xl font-bold text-gray-900">事件记录</h1>
           <p className="mt-1 text-sm text-gray-500">记录您的互动与共同经历。</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-          添加事件
-        </button>
+        <div className="flex gap-2">
+            <button
+                onClick={toggleSort}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                {sortOrder === 'desc' ? (
+                    <>
+                        <ArrowDown className="mr-2 h-4 w-4 text-gray-500" />
+                        日期倒序
+                    </>
+                ) : (
+                    <>
+                        <ArrowUp className="mr-2 h-4 w-4 text-gray-500" />
+                        日期正序
+                    </>
+                )}
+            </button>
+            <button 
+            onClick={openAddModal}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+            <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+            添加事件
+            </button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
+      {/* Search and Filters */}
+      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 items-center">
+        <div className="flex-1 w-full sm:w-auto relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
           </div>
@@ -93,76 +150,111 @@ const Events = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        <div className="flex gap-2 w-full sm:w-auto">
+            <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="block w-1/2 sm:w-32 pl-3 pr-8 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-50 hover:bg-white cursor-pointer"
+            >
+                <option value="all">所有年份</option>
+                {years.map(year => (
+                    <option key={year} value={year}>{year}年</option>
+                ))}
+            </select>
+            
+            <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="block w-1/2 sm:w-32 pl-3 pr-8 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-50 hover:bg-white cursor-pointer"
+            >
+                <option value="all">所有月份</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                    <option key={month} value={month}>{month}月</option>
+                ))}
+            </select>
+        </div>
       </div>
 
-      {/* Events List */}
+      {/* Events List Grouped */}
       {loading ? (
         <div className="text-center py-12">
           <p className="text-gray-500">加载中...</p>
         </div>
       ) : filteredEvents.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <p className="text-gray-500">暂无事件记录，请记录您的第一次互动！</p>
+          <p className="text-gray-500">暂无事件记录</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredEvents.map((event) => (
-            <div key={event.id} className="bg-white shadow rounded-lg border border-gray-100 p-6 hover:shadow-md transition-shadow relative group">
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => openEditModal(event)}
-                  className="p-1 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600"
-                  title="编辑"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-              </div>
-              
-              <div className="flex flex-col md:flex-row justify-between md:items-start">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-xl font-semibold text-gray-900">{event.name}</h3>
-                    {event.type && (
-                      <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {event.type}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
-                    <div className="flex items-center">
-                      <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                      {new Date(event.event_date).toLocaleDateString()}
+        <div className="space-y-8">
+            {sortedGroups.map(group => (
+                <div key={group}>
+                    <div className="flex items-center mb-4">
+                        <div className="h-px flex-1 bg-gray-200"></div>
+                        <span className="px-4 text-sm font-medium text-gray-500 bg-gray-50 rounded-full py-1 border border-gray-200">{group}</span>
+                        <div className="h-px flex-1 bg-gray-200"></div>
                     </div>
-                    {event.location && (
-                      <div className="flex items-center">
-                        <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                        {event.location}
-                      </div>
-                    )}
-                  </div>
+                    <div className="space-y-4">
+                    {groupedEvents[group].map((event) => (
+                        <div key={event.id} className="bg-white shadow rounded-lg border border-gray-100 p-6 hover:shadow-md transition-shadow relative group">
+                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                            onClick={() => openEditModal(event)}
+                            className="p-1 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600"
+                            title="编辑"
+                            >
+                            <Edit className="h-4 w-4" />
+                            </button>
+                        </div>
+                        
+                        <div className="flex flex-col md:flex-row justify-between md:items-start">
+                            <div className="flex-1">
+                            <div className="flex items-center">
+                                <h3 className="text-xl font-semibold text-gray-900">{event.name}</h3>
+                                {event.type && (
+                                <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {event.type}
+                                </span>
+                                )}
+                            </div>
+                            
+                            <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
+                                <div className="flex items-center">
+                                <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                                {new Date(event.event_date).toLocaleDateString()}
+                                </div>
+                                {event.location && (
+                                <div className="flex items-center">
+                                    <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                                    {event.location}
+                                </div>
+                                )}
+                            </div>
 
-                  {event.description && (
-                    <p className="mt-3 text-gray-600 text-sm">{event.description}</p>
-                  )}
+                            {event.description && (
+                                <p className="mt-3 text-gray-600 text-sm">{event.description}</p>
+                            )}
 
-                  {/* Participants */}
-                  <div className="mt-4 flex items-center flex-wrap gap-2">
-                    <Users className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                    {event.event_participants && event.event_participants.length > 0 ? (
-                      event.event_participants.map((ep) => (
-                        <span key={ep.people.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          {ep.people.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-400 italic">无参与人</span>
-                    )}
-                  </div>
+                            {/* Participants */}
+                            <div className="mt-4 flex items-center flex-wrap gap-2">
+                                <Users className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                                {event.event_participants && event.event_participants.length > 0 ? (
+                                event.event_participants.map((ep) => (
+                                    <span key={ep.people.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    {ep.people.name}
+                                    </span>
+                                ))
+                                ) : (
+                                <span className="text-sm text-gray-400 italic">无参与人</span>
+                                )}
+                            </div>
+                            </div>
+                        </div>
+                        </div>
+                    ))}
+                    </div>
                 </div>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 

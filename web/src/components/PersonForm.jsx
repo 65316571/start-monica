@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Plus, Check } from 'lucide-react';
+import { chinaCities } from '../data/china_cities';
 
 const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
   const [formData, setFormData] = useState({
@@ -8,12 +9,20 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
     gender: '',
     contact_info: '',
     notes: '',
+    identity: '',
+    meet_date: '',
+    province: '',
+    city: '',
+    industry: '',
   });
   const [availableTags, setAvailableTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]); // Array of tag objects
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [cities, setCities] = useState([]); // Available cities based on selected province
   const isEditMode = !!initialData;
+
+  const identities = ['家人', '同学', '同事', '网友', '朋友', '其他'];
 
   useEffect(() => {
     fetchTags();
@@ -23,7 +32,21 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
         gender: initialData.gender,
         contact_info: initialData.contact_info || '',
         notes: initialData.notes || '',
+        identity: initialData.identity || '',
+        meet_date: initialData.meet_date || '',
+        province: initialData.province || '',
+        city: initialData.city || '',
+        industry: initialData.industry || '',
       });
+      
+      // Set initial cities if province is present
+      if (initialData.province) {
+        const provinceData = chinaCities.find(p => p.province === initialData.province);
+        if (provinceData) {
+          setCities(provinceData.cities);
+        }
+      }
+
       // Fetch existing tags for this person if editing
       fetchPersonTags(initialData.id);
     }
@@ -46,7 +69,15 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Handle province change cascade
+    if (name === 'province') {
+      const provinceData = chinaCities.find(p => p.province === value);
+      setCities(provinceData ? provinceData.cities : []);
+      setFormData(prev => ({ ...prev, province: value, city: '' })); // Reset city
+    }
   };
 
   const toggleTag = (tag) => {
@@ -70,12 +101,18 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
 
     try {
       let personId;
+      
+      // Clean up empty strings to null for optional fields if needed, 
+      // but Supabase usually handles empty strings fine as text.
+      // Date field needs to be null if empty string to avoid invalid input syntax for type date
+      const submitData = { ...formData };
+      if (!submitData.meet_date) submitData.meet_date = null;
 
       if (isEditMode) {
         // Update Person
         const { error: updateError } = await supabase
           .from('people')
-          .update(formData)
+          .update(submitData)
           .eq('id', initialData.id);
         
         if (updateError) throw updateError;
@@ -84,7 +121,7 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
         // Create Person
         const { data, error: insertError } = await supabase
           .from('people')
-          .insert([formData])
+          .insert([submitData])
           .select()
           .single();
 
@@ -93,6 +130,7 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
       }
 
       // Update Tags (Delete all and re-insert for simplicity)
+      // Note: This logic for tags is kept as requested (separate from identity)
       if (isEditMode) {
         await supabase.from('person_tags').delete().eq('person_id', personId);
       }
@@ -172,6 +210,85 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
             </select>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                身份
+              </label>
+              <select
+                name="identity"
+                value={formData.identity}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">选择身份</option>
+                {identities.map(id => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                认识时间
+              </label>
+              <input
+                type="date"
+                name="meet_date"
+                value={formData.meet_date}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                现居城市
+              </label>
+              <div className="flex gap-2">
+                <select
+                  name="province"
+                  value={formData.province}
+                  onChange={handleChange}
+                  className="w-1/2 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="">省份</option>
+                  {chinaCities.map(p => (
+                    <option key={p.province} value={p.province}>{p.province}</option>
+                  ))}
+                </select>
+                <select
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  disabled={!formData.province}
+                  className="w-1/2 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100"
+                >
+                  <option value="">城市</option>
+                  {cities.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                所属行业
+              </label>
+              <input
+                type="text"
+                name="industry"
+                value={formData.industry}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="例如：IT、金融"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               联系方式
@@ -182,7 +299,7 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
               value={formData.contact_info}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="电话、邮箱等"
+              placeholder="电话、微信号等"
             />
           </div>
 

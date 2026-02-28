@@ -150,6 +150,22 @@ const PersonDetail = () => {
         {/* Details Grid */}
         <div className="px-6 py-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">身份</h3>
+            <p className="text-gray-900">{person.identity || '未设置'}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">认识时间</h3>
+            <p className="text-gray-900">{person.meet_date || '未设置'}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">现居城市</h3>
+            <p className="text-gray-900">{person.province && person.city ? `${person.province} ${person.city}` : person.province || person.city || '未设置'}</p>
+          </div>
+           <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">所属行业</h3>
+            <p className="text-gray-900">{person.industry || '未设置'}</p>
+          </div>
+          <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">联系方式</h3>
             <p className="text-gray-900">{person.contact_info || '无'}</p>
           </div>

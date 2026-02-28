@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash, Tag } from 'lucide-react';
+import { Plus, Trash, Tag, Edit, Save, X } from 'lucide-react';
 
 const Tags = () => {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newTag, setNewTag] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3b82f6'); // Default blue
   const [error, setError] = useState(null);
+  
+  // Editing state
+  const [editingTagId, setEditingTagId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('');
 
   useEffect(() => {
     fetchTags();
@@ -34,7 +40,7 @@ const Tags = () => {
     try {
       const { data, error } = await supabase
         .from('tags')
-        .insert([{ name: newTag.trim() }])
+        .insert([{ name: newTag.trim(), color: newTagColor }])
         .select()
         .single();
 
@@ -42,9 +48,41 @@ const Tags = () => {
 
       setTags([data, ...tags]);
       setNewTag('');
+      setNewTagColor('#3b82f6');
       setError(null);
     } catch (err) {
       setError(err.message.includes('unique constraint') ? '标签已存在' : err.message);
+    }
+  };
+
+  const startEdit = (tag) => {
+    setEditingTagId(tag.id);
+    setEditName(tag.name);
+    setEditColor(tag.color || '#3b82f6');
+  };
+
+  const cancelEdit = () => {
+    setEditingTagId(null);
+    setEditName('');
+    setEditColor('');
+  };
+
+  const handleUpdateTag = async (id) => {
+    if (!editName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .update({ name: editName.trim(), color: editColor })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTags(tags.map(t => t.id === id ? { ...t, name: editName.trim(), color: editColor } : t));
+      setEditingTagId(null);
+    } catch (err) {
+      console.error('Error updating tag:', err);
+      alert('更新失败: ' + err.message);
     }
   };
 
@@ -92,8 +130,23 @@ const Tags = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="例如：#小学同学"
               />
-              {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
             </div>
+            <div className="mb-4">
+              <label htmlFor="tagColor" className="block text-sm font-medium text-gray-700 mb-1">
+                标签颜色
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  id="tagColor"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  className="h-9 w-16 p-0 border border-gray-300 rounded-md cursor-pointer"
+                />
+                <span className="text-sm text-gray-500">{newTagColor}</span>
+              </div>
+            </div>
+            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
             <button
               type="submit"
               disabled={!newTag.trim()}
@@ -119,17 +172,54 @@ const Tags = () => {
             <ul className="divide-y divide-gray-200">
               {tags.map((tag) => (
                 <li key={tag.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center">
-                    <Tag className="h-5 w-5 text-gray-400 mr-3" />
-                    <span className="text-sm font-medium text-gray-900">{tag.name}</span>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteTag(tag.id)}
-                    className="text-red-600 hover:text-red-900 p-2"
-                    title="删除"
-                  >
-                    <Trash className="h-4 w-4" />
-                  </button>
+                  {editingTagId === tag.id ? (
+                    <div className="flex items-center flex-1 gap-4">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      />
+                      <input
+                        type="color"
+                        value={editColor}
+                        onChange={(e) => setEditColor(e.target.value)}
+                        className="h-8 w-12 p-0 border border-gray-300 rounded-md cursor-pointer"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => handleUpdateTag(tag.id)} className="text-green-600 hover:text-green-800">
+                          <Save className="h-4 w-4" />
+                        </button>
+                        <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center">
+                        <Tag className="h-5 w-5 mr-3" style={{ color: tag.color || '#9ca3af' }} />
+                        <span className="text-sm font-medium text-gray-900">{tag.name}</span>
+                        <span className="ml-2 w-3 h-3 rounded-full" style={{ backgroundColor: tag.color || '#3b82f6' }} title={tag.color}></span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => startEdit(tag)}
+                          className="text-blue-600 hover:text-blue-900 p-2"
+                          title="编辑"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTag(tag.id)}
+                          className="text-red-600 hover:text-red-900 p-2"
+                          title="删除"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
