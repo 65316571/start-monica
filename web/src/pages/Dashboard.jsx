@@ -140,9 +140,33 @@ const Dashboard = () => {
         let filteredLinks = links;
         if (selectedTag !== 'all') {
             filteredLinks = links.filter(link => 
-                (link.type === 'tag' && link.tagName === selectedTag) || 
-                link.type === 'explicit'
+                link.type === 'tag' && link.tagName === selectedTag
             );
+        }
+
+        // 4. Merge Links if Color Mode is OFF
+        if (!colorByTag) {
+            const mergedLinksMap = {};
+            filteredLinks.forEach(link => {
+                // Create a unique key for the pair, sorted to ensure A-B is same as B-A
+                // (Note: source/target are IDs here)
+                const s = link.source < link.target ? link.source : link.target;
+                const t = link.source < link.target ? link.target : link.source;
+                const key = `${s}-${t}`;
+
+                if (!mergedLinksMap[key]) {
+                    // Clone the first link as base
+                    mergedLinksMap[key] = { ...link, value: 0, label: '', isMerged: true };
+                }
+                
+                // Aggregate value/strength
+                mergedLinksMap[key].value += link.value;
+                // Append labels if needed, or just say "Multiple"
+                if (!mergedLinksMap[key].label.includes(link.label)) {
+                     mergedLinksMap[key].label += (mergedLinksMap[key].label ? ', ' : '') + link.label;
+                }
+            });
+            filteredLinks = Object.values(mergedLinksMap);
         }
 
         // 5. Filter Nodes based on filtered links

@@ -328,17 +328,34 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
             </div>
             
             <div className="relative">
-              <input
-                type="text"
-                value={peopleSearch}
-                onChange={(e) => setPeopleSearch(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-                placeholder="搜索并添加参与人..."
-              />
+              <div className="flex gap-2 mb-2">
+                <input
+                    type="text"
+                    value={peopleSearch}
+                    onChange={(e) => setPeopleSearch(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="搜索并添加参与人..."
+                />
+                <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="w-32 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                    <option value="all">所有标签</option>
+                    {tags.map(tag => (
+                        <option key={tag.id} value={tag.id}>{tag.name}</option>
+                    ))}
+                </select>
+              </div>
               
               <div className="w-full bg-white shadow-inner border border-gray-200 rounded-md max-h-40 overflow-y-auto">
                   {(() => {
-                    const searchResults = people.filter(p => p.name.toLowerCase().includes(peopleSearch.toLowerCase()));
+                    const searchResults = people.filter(p => {
+                        const matchesName = p.name.toLowerCase().includes(peopleSearch.toLowerCase());
+                        const matchesTag = tagFilter === 'all' || (personTagsMap[p.id] && personTagsMap[p.id].has(tagFilter));
+                        return matchesName && matchesTag;
+                    });
+
                     return searchResults.length === 0 ? (
                       <div className="px-4 py-2 text-gray-500 text-sm">未找到人物</div>
                     ) : (
