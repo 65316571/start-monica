@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, Database, Tag } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, Database, Tag, Activity } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const Layout = ({ children }) => {
@@ -8,6 +8,7 @@ const Layout = ({ children }) => {
 
   const navItems = [
     { name: '仪表盘', path: '/', icon: LayoutDashboard },
+    { name: '人生浏览', path: '/timeline', icon: Activity },
     { name: '人物管理', path: '/people', icon: Users },
     { name: '事件记录', path: '/events', icon: Calendar },
     { name: '标签管理', path: '/tags', icon: Tag },
@@ -20,7 +21,7 @@ const Layout = ({ children }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col">
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-800">Start Monica</h1>
+          <h1 className="text-xl font-bold text-gray-800">⭐Start Monica</h1>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
