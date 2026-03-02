@@ -1,57 +1,113 @@
-# React + TypeScript + Vite
+# Monica 个人关系管理系统 (PRM)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+这是一个基于 React 和 Supabase 构建的个人关系管理系统（Personal Relationship Management），旨在帮助您更好地记录和管理与朋友、家人、同事等的人际关系。
 
-Currently, two official plugins are available:
+## 🌟 核心功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   **👥 人物管理**
+    *   记录联系人的基本信息（姓名、性别、联系方式等）。
+    *   **详细档案**：新增身份关系、认识时间、现居城市（支持中国省市级联选择）、所属行业等字段。
+    *   **多维度筛选**：支持按姓名、性别、地区、行业、标签等多种条件快速查找人物。
 
-## Expanding the ESLint configuration
+*   **🏷️ 标签系统**
+    *   自定义标签（如 #同学、#同事、#家人）。
+    *   **可视化管理**：支持自定义标签颜色，用于在关系图谱中区分不同类型的关系。
+    *   **灵活编辑**：随时修改标签名称和颜色。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+*   **📅 事件记录**
+    *   记录与他人的互动事件（聚会、会议、聊天等）。
+    *   **时间轴视图**：事件按“年-月”自动分组，清晰展示过往经历。
+    *   **便捷录入**：支持标签筛选快速查找并添加参与人。
+    *   **排序与筛选**：支持按日期正序/倒序排列，以及按年份、月份筛选事件。
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+*   **🕸️ 人际关系图谱 (仪表盘)**
+    *   **可视化网络**：基于 D3 力导向图展示您的人际网络。
+    *   **智能连接**：
+        *   **显式关系**：基于共同参与的事件自动建立连接。
+        *   **隐式关系**：拥有相同标签（如“#高中同学”）的人会自动连接。
+    *   **交互式筛选**：
+        *   点击特定标签，图谱仅展示该标签下的关系网络，隐藏无关节点。
+        *   **设置中心**：可开启/关闭“彩色标签连线”。关闭时，多重关系将智能合并为一条简洁的连线。
+
+*   **💾 数据管理**
+    *   支持数据的导入与导出（JSON 格式），保障数据安全与迁移便捷。
+
+## 🛠️ 技术栈
+
+*   **前端**：React 18, Vite, Tailwind CSS
+*   **图标库**：Lucide React
+*   **图表库**：React Force Graph (2D)
+*   **后端/数据库**：Supabase (PostgreSQL)
+
+## 🚀 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone <your-repo-url>
+cd start-monica
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. 安装依赖
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+进入 `web` 目录并安装依赖：
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+cd web
+npm install
 ```
+
+### 3. 配置环境变量
+
+在 `web` 目录下创建 `.env` 或 `.env.local` 文件，填入您的 Supabase 配置：
+
+```properties
+VITE_SUPABASE_URL=您的Supabase项目URL
+VITE_SUPABASE_ANON_KEY=您的Supabase匿名Key
+```
+
+> **提示**：如果您使用本地 Supabase，URL 通常为 `http://127.0.0.1:54321`。
+
+### 4. 启动开发服务器
+
+```bash
+npm run dev
+```
+
+浏览器访问 `http://localhost:5173` 即可开始使用。
+
+### 5. 构建生产版本
+
+```bash
+npm run build
+```
+构建产物将输出到 `web/dist` 目录。
+
+## 🗄️ 数据库结构
+
+项目依赖以下核心表结构（SQL 迁移文件位于 `supabase/migrations`）：
+
+*   `people`: 存储人物基本信息。
+*   `events`: 存储互动事件。
+*   `tags`: 存储标签定义（含颜色）。
+*   `person_tags`: 人物与标签的关联表。
+*   `event_participants`: 事件与参与人的关联表。
+*   `relationships`: 存储人物间的显式关系强度。
+
+## 📝 开发日志
+
+*   **2024-01-04**: 
+    *   优化仪表盘筛选逻辑，支持严格标签过滤。
+    *   完善事件添加时的选人体验，增加标签辅助筛选。
+    *   实现关系图谱连线的智能合并与彩色显示切换。
+*   **2024-01-03**: 
+    *   新增人物详情字段（省市、行业等）。
+    *   实现基于标签的自动关系连接。
+
+## 🤝 贡献
+
+欢迎提交 Issue 或 Pull Request 来改进这个项目！
+
+## 📄 许可证
+
+MIT License
