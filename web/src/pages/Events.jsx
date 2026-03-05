@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit, Calendar, MapPin, Users, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import EventForm from '../components/EventForm';
 
 const Events = () => {
+  const location = useLocation();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,6 +18,13 @@ const Events = () => {
 
   useEffect(() => {
     fetchEvents();
+    // Check for navigation state to open modal
+    if (location.state?.openAddModal) {
+        openAddModal();
+        // Optional: clear state to prevent reopening on refresh? 
+        // React Router state persists on refresh usually, but handling it once is fine.
+        window.history.replaceState({}, document.title);
+    }
   }, [sortOrder]);
 
   const toggleSort = () => {

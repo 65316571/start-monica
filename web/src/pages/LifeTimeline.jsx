@@ -1,28 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Search, Plus, Filter, Activity, Calendar as CalendarIcon, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, startOfYear, endOfYear, startOfWeek, endOfWeek, getYear, getMonth, getDate, differenceInDays } from 'date-fns';
+import { Search, Plus, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { format, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, startOfYear, endOfYear, startOfMonth, endOfMonth, startOfWeek, endOfWeek, getYear, getMonth, getDate, differenceInDays, getDay } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import EventForm from '../components/EventForm';
 
 const LifeTimeline = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState('year'); // 'decade', 'year', 'month', 'week'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filteredEvents, setFilteredEvents] = useState([]);
   const timelineRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  
+  // New State for Search, Filter, and Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [tags, setTags] = useState([]);
+  const [selectedTag, setSelectedTag] = useState('all');
 
   useEffect(() => {
     fetchEvents();
+    fetchTags();
   }, []);
 
   useEffect(() => {
     // Filter events based on visible range (simplified for now to current year/month)
     filterEventsForView();
-  }, [events, currentDate, zoomLevel]);
+  }, [events, currentDate, zoomLevel, searchQuery, selectedTag]); // Re-filter when search or tag changes
+
+  const fetchTags = async () => {
+      const { data, error } = await supabase.from('tags').select('id, name');
+      if (!error) setTags(data || []);
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -33,7 +47,13 @@ const LifeTimeline = () => {
         event_participants (
           people (
             id,
-            name
+            name,
+            person_tags (
+                tags (
+                    id,
+                    name
+                )
+            )
           )
         )
       `)
@@ -45,6 +65,15 @@ const LifeTimeline = () => {
       setEvents(data);
     }
     setLoading(false);
+  };
+  
+  const handleEventCreated = (newEvent) => {
+    fetchEvents();
+    setIsModalOpen(false);
+  };
+  
+  const handleAddEventClick = () => {
+      navigate('/events', { state: { openAddModal: true } });
   };
 
   const filterEventsForView = () => {
@@ -68,36 +97,114 @@ const LifeTimeline = () => {
 
     const visible = events.filter(e => {
         const d = new Date(e.event_date);
-        return d >= start && d <= end;
+        const inDateRange = d >= start && d <= end;
+        const matchesSearch = searchQuery === '' || 
+            e.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (e.description && e.description.toLowerCase().includes(searchQuery.toLowerCase()));
+            
+        // Filter by Tag (Implicitly via participants)
+        let matchesTag = true;
+        if (selectedTag !== 'all') {
+            // Check if any participant has this tag
+            const hasParticipantWithTag = e.event_participants && e.event_participants.some(ep => {
+                if (!ep.people || !ep.people.person_tags) return false;
+                // person_tags is array of objects { tags: { id, name } }
+                return ep.people.person_tags.some(pt => pt.tags && pt.tags.name === selectedTag);
+            });
+            matchesTag = hasParticipantWithTag;
+        }
+
+        return inDateRange && matchesSearch && matchesTag;
     });
     setFilteredEvents(visible);
   };
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setStartX(e.pageX - timelineRef.current.offsetLeft);
-    setScrollLeft(timelineRef.current.scrollLeft);
+  // --- Rendering Helpers ---
+
+  // Generate grid ticks (X-axis labels)
+  const getGridTicks = () => {
+    const ticks = [];
+    if (zoomLevel === 'year') {
+        // 12 Months
+        for (let i = 0; i < 12; i++) {
+            ticks.push({ 
+                label: `${i + 1}月`, 
+                left: (i / 12) * 100, 
+                width: 100/12,
+                color: i % 2 === 0 ? 'bg-gray-50' : 'bg-white' 
+            });
+        }
+    } else if (zoomLevel === 'month') {
+        // Weeks in month (approx 4-5)
+        const start = startOfMonth(currentDate);
+        const end = endOfMonth(currentDate);
+        // Ensure we cover full weeks from Monday
+        const weeks = Math.ceil((getDate(end) + getDay(start) - 1) / 7) || 4;
+        
+        for (let i = 0; i < weeks; i++) {
+            ticks.push({ 
+                label: `第${i + 1}周`, 
+                left: (i / weeks) * 100,
+                width: 100/weeks,
+                color: i % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+            });
+        }
+    } else if (zoomLevel === 'week') {
+        // 7 Days
+        const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        for (let i = 0; i < 7; i++) {
+            ticks.push({ 
+                label: days[i], 
+                left: (i / 7) * 100,
+                width: 100/7,
+                color: i % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+            });
+        }
+    } else {
+        // Decade (Years)
+        for (let i = 0; i < 10; i++) {
+            ticks.push({ 
+                label: `${currentDate.getFullYear() - 5 + i}`, 
+                left: (i / 10) * 100,
+                width: 100/10,
+                color: i % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+            });
+        }
+    }
+    return ticks;
   };
 
-  const handleMouseLeave = () => {
-    setIsDragging(false);
+  // Group events by time slot to handle overlaps
+  const getGroupedEvents = () => {
+      const groups = {};
+      
+      filteredEvents.forEach(event => {
+          const date = new Date(event.event_date);
+          let key;
+          
+          if (zoomLevel === 'year') {
+              key = getMonth(date); // 0-11
+          } else if (zoomLevel === 'month') {
+              // Approximate week index relative to start of month
+              const start = startOfMonth(currentDate);
+              // Simple week calc: (Day of month + start day offset) / 7
+              // Or better: difference in weeks?
+              // Let's stick to simple day-based bucketing for visual consistency
+              key = Math.floor((getDate(date) - 1) / 7); 
+              // Clamp to last bucket if 31st day creates 5th bucket but we only render 4?
+              // Usually max 5 weeks.
+          } else if (zoomLevel === 'week') {
+              key = getDay(date) === 0 ? 6 : getDay(date) - 1; // 0 (Mon) - 6 (Sun)
+          } else {
+              key = date.getFullYear() - (currentDate.getFullYear() - 5);
+          }
+
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(event);
+      });
+      return groups;
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - timelineRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // Scroll-fast
-    // Instead of scrolling div, we might want to adjust currentDate
-    // For now, let's implement simple date shifting based on drag
-    // This part is tricky with React state, might need throttle
-  };
-
-  // Simplified navigation for MVP
   const navigateTime = (direction) => {
     if (zoomLevel === 'year') {
         setCurrentDate(prev => direction === 'next' ? addYears(prev, 1) : subYears(prev, 1));
@@ -108,6 +215,14 @@ const LifeTimeline = () => {
     } else {
         setCurrentDate(prev => direction === 'next' ? addYears(prev, 5) : subYears(prev, 5));
     }
+  };
+
+  const ticks = getGridTicks();
+  const groupedEvents = getGroupedEvents();
+
+  const handleEventClick = (eventId) => {
+      // Navigate to events list, potentially filtering or highlighting the specific event
+      navigate('/events');
   };
 
   return (
@@ -144,13 +259,64 @@ const LifeTimeline = () => {
             </div>
         </div>
         <div className="flex items-center space-x-2">
-            <button className="p-2 text-gray-600 hover:bg-gray-200 rounded-full">
-                <Search className="h-5 w-5" />
-            </button>
-            <button className="p-2 text-gray-600 hover:bg-gray-200 rounded-full">
-                <Filter className="h-5 w-5" />
-            </button>
-            <button className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+            <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-48 bg-gray-100 rounded-md px-2' : 'w-10'}`}>
+                <button 
+                    onClick={() => {
+                        setIsSearchOpen(!isSearchOpen);
+                        if (isSearchOpen) setSearchQuery(''); // Clear search on close
+                    }}
+                    className="p-2 text-gray-600 hover:bg-gray-200 rounded-full flex-shrink-0"
+                >
+                    {isSearchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                </button>
+                {isSearchOpen && (
+                    <input 
+                        type="text" 
+                        placeholder="搜索事件..." 
+                        className="bg-transparent border-none focus:ring-0 text-sm w-full outline-none"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                    />
+                )}
+            </div>
+            
+            <div className="relative">
+                <button 
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className={`p-2 rounded-full transition-colors ${selectedTag !== 'all' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:bg-gray-200'}`} 
+                    title="筛选标签"
+                >
+                    <Filter className="h-5 w-5" />
+                </button>
+                {isFilterOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                            按参与人标签筛选
+                        </div>
+                        <button
+                            onClick={() => { setSelectedTag('all'); setIsFilterOpen(false); }}
+                            className={`block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 ${selectedTag === 'all' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                        >
+                            全部事件
+                        </button>
+                        {tags.map(tag => (
+                            <button
+                                key={tag.id}
+                                onClick={() => { setSelectedTag(tag.name); setIsFilterOpen(false); }}
+                                className={`block px-4 py-2 text-sm text-left w-full hover:bg-gray-100 ${selectedTag === tag.name ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                            >
+                                {tag.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <button 
+                onClick={handleAddEventClick}
+                className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+            >
                 <Plus className="h-4 w-4 mr-1" />
                 新增事件
             </button>
@@ -175,72 +341,42 @@ const LifeTimeline = () => {
             </button>
         </div>
 
-        {/* The Timeline Visualization (Placeholder for D3/Canvas) */}
+        {/* Fixed Grid Timeline */}
         <div 
             ref={timelineRef}
-            className="flex-1 w-full overflow-x-auto overflow-y-hidden relative custom-scrollbar mt-16"
-            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-            onMouseDown={handleMouseDown}
-            onMouseLeave={handleMouseLeave}
-            onMouseUp={handleMouseUp}
-            onMouseMove={handleMouseMove}
+            className="flex-1 w-full relative mt-16 px-4 pb-4 overflow-hidden"
         >
-            <div className="h-full min-w-full flex items-center relative px-10" style={{ width: '200%' }}>
-                {/* Horizontal Line */}
-                <div className="absolute w-full h-0.5 bg-gray-300 top-1/2 transform -translate-y-1/2"></div>
-                
-                {/* Ticks & Events - Simplistic rendering for MVP */}
-                {/* We would render ticks dynamically based on zoom level */}
-                <div className="relative w-full h-full">
-                    {/* Render Events as dots */}
-                    {filteredEvents.map((event, index) => {
-                        // Calculate position percentage
-                        let percent = 0;
-                        const date = new Date(event.event_date);
+            <div className="h-full w-full relative flex border-t border-gray-300">
+                {/* Grid Columns */}
+                {ticks.map((tick, index) => (
+                    <div 
+                        key={index} 
+                        className={`absolute h-full border-r border-gray-200 border-dashed last:border-0 ${tick.color}`}
+                        style={{ left: `${tick.left}%`, width: `${tick.width}%` }}
+                    >
+                        <div className="absolute -top-6 w-full text-center text-xs font-bold text-gray-500">{tick.label}</div>
                         
-                        if (zoomLevel === 'year') {
-                            const start = startOfYear(currentDate);
-                            const totalDays = 365; // approx
-                            const daysDiff = differenceInDays(date, start);
-                            percent = (daysDiff / totalDays) * 100;
-                        } else if (zoomLevel === 'month') {
-                            const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-                            percent = ((date.getDate() - 1) / daysInMonth) * 100;
-                        } else if (zoomLevel === 'week') {
-                            const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-                            const daysDiff = differenceInDays(date, start);
-                            // 7 days in a week
-                            percent = (daysDiff / 7) * 100;
-                        } else {
-                            // Decade
-                            const startYear = currentDate.getFullYear() - 5;
-                            const totalYears = 10;
-                            const yearDiff = date.getFullYear() - startYear + (date.getMonth() / 12);
-                            percent = (yearDiff / totalYears) * 100;
-                        }
-
-                        // Constrain for demo 200% width container
-                        // In real app, we need virtual scrolling or canvas
-                        const styleLeft = `${Math.max(0, Math.min(100, percent))}%`;
-
-                        return (
-                            <div 
-                                key={event.id}
-                                className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 flex flex-col items-center group cursor-pointer"
-                                style={{ left: styleLeft }}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                                    event.type === 'milestone' ? 'bg-red-500 w-5 h-5' : 'bg-blue-500'
-                                } group-hover:scale-125 transition-transform`}></div>
-                                
-                                {/* Full Label always visible */}
-                                <div className="mt-4 text-xs text-gray-700 font-medium whitespace-nowrap bg-white/50 px-1 rounded backdrop-blur-[1px]">
-                                    {format(date, 'MM-dd')} {event.name}
+                        {/* Event Stack */}
+                        <div className="flex flex-col items-center pt-8 space-y-2 w-full px-1">
+                            {groupedEvents[index] && groupedEvents[index].map((event, i) => (
+                                <div 
+                                    key={event.id}
+                                    onClick={() => handleEventClick(event.id)}
+                                    className="w-full text-center group relative cursor-pointer"
+                                    title={`${format(new Date(event.event_date), 'yyyy-MM-dd')} ${event.name} - ${event.description || ''}`}
+                                >
+                                    <div className={`mx-auto w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                                        event.type === 'milestone' ? 'bg-red-500 w-4 h-4' : 'bg-blue-500'
+                                    }`}></div>
+                                    
+                                    <div className="mt-1 text-xs text-gray-700 font-medium truncate w-full bg-white/60 rounded px-1 backdrop-blur-[1px] hover:bg-white hover:shadow-sm hover:z-50 hover:whitespace-normal hover:absolute hover:w-32 hover:left-1/2 hover:-translate-x-1/2 transition-all">
+                                        {format(new Date(event.event_date), 'MM-dd')} {event.name}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
       </div>
@@ -281,6 +417,14 @@ const LifeTimeline = () => {
             )}
         </div>
       </div>
+
+      {/* Add Event Modal */}
+      {isModalOpen && (
+         <EventForm 
+           onClose={() => setIsModalOpen(false)} 
+           onEventUpdated={handleEventCreated}
+         />
+      )}
     </div>
   );
 };
