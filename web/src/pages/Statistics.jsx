@@ -148,90 +148,90 @@ const Statistics = () => {
   return (
     <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <BarChart2 className="mr-3 h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
+                <BarChart2 className="mr-3 h-8 w-8 text-blue-600 dark:text-blue-400" />
                 数据统计
             </h1>
             
-            <div className="flex bg-white rounded-md shadow-sm border border-gray-300">
+            <div className="flex bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
                 <button 
                     onClick={() => setTimeRange('year')}
-                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'year' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} border-r border-gray-300 first:rounded-l-md`}
+                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'year' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} border-r border-gray-300 dark:border-gray-600 first:rounded-l-md transition-colors`}
                 >
                     年度
                 </button>
                 <button 
                     onClick={() => setTimeRange('month')}
-                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'month' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} border-r border-gray-300`}
+                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'month' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} border-r border-gray-300 dark:border-gray-600 transition-colors`}
                 >
                     月度
                 </button>
                 <button 
                     onClick={() => setTimeRange('week')}
-                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'week' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} last:rounded-r-md`}
+                    className={`px-4 py-2 text-sm font-medium ${timeRange === 'week' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} last:rounded-r-md transition-colors`}
                 >
                     周度
                 </button>
             </div>
         </div>
 
-        <div className="bg-white shadow rounded-lg border border-gray-200 overflow-hidden max-w-2xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden max-w-2xl mx-auto transition-colors duration-200">
             {/* Header / Navigation */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <button onClick={() => navigateTime('prev')} className="p-2 hover:bg-gray-200 rounded-full text-gray-600">
+            <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center transition-colors duration-200">
+                <button onClick={() => navigateTime('prev')} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 transition-colors">
                     <ChevronLeft className="h-5 w-5" />
                 </button>
-                <h2 className="text-xl font-bold text-gray-800">{getTitle()}</h2>
-                <button onClick={() => navigateTime('next')} className="p-2 hover:bg-gray-200 rounded-full text-gray-600">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">{getTitle()}</h2>
+                <button onClick={() => navigateTime('next')} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 transition-colors">
                     <ChevronRight className="h-5 w-5" />
                 </button>
             </div>
 
             {/* Content */}
             {loading ? (
-                <div className="p-12 text-center text-gray-500">加载数据中...</div>
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">加载数据中...</div>
             ) : (
                 <div className="p-6">
                     <div className="grid gap-6">
-                        <div className="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-100">
-                            <div className="p-3 bg-blue-100 rounded-full mr-4">
-                                <Calendar className="h-6 w-6 text-blue-600" />
+                        <div className="flex items-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 transition-colors">
+                            <div className="p-3 bg-blue-100 dark:bg-blue-800 rounded-full mr-4">
+                                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-300" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">事件数</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats?.eventCount}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">事件数</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.eventCount}</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center p-4 bg-green-50 rounded-lg border border-green-100">
-                            <div className="p-3 bg-green-100 rounded-full mr-4">
-                                <Users className="h-6 w-6 text-green-600" />
+                        <div className="flex items-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800 transition-colors">
+                            <div className="p-3 bg-green-100 dark:bg-green-800 rounded-full mr-4">
+                                <Users className="h-6 w-6 text-green-600 dark:text-green-300" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">新认识朋友</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats?.newPeopleCount} <span className="text-sm font-normal text-gray-500">人</span></p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">新认识朋友</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newPeopleCount} <span className="text-sm font-normal text-gray-500 dark:text-gray-400">人</span></p>
                             </div>
                         </div>
 
-                        <div className="flex items-center p-4 bg-purple-50 rounded-lg border border-purple-100">
-                            <div className="p-3 bg-purple-100 rounded-full mr-4">
-                                <TrendingUp className="h-6 w-6 text-purple-600" />
+                        <div className="flex items-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800 transition-colors">
+                            <div className="p-3 bg-purple-100 dark:bg-purple-800 rounded-full mr-4">
+                                <TrendingUp className="h-6 w-6 text-purple-600 dark:text-purple-300" />
                             </div>
                             <div className="flex-1">
-                                <p className="text-sm text-gray-500 font-medium">高频互动</p>
-                                <p className="text-lg font-bold text-gray-900 truncate" title={stats?.topInteractions}>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">高频互动</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white truncate" title={stats?.topInteractions}>
                                     {stats?.topInteractions}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center p-4 bg-amber-50 rounded-lg border border-amber-100">
-                            <div className="p-3 bg-amber-100 rounded-full mr-4">
-                                <Award className="h-6 w-6 text-amber-600" />
+                        <div className="flex items-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800 transition-colors">
+                            <div className="p-3 bg-amber-100 dark:bg-amber-800 rounded-full mr-4">
+                                <Award className="h-6 w-6 text-amber-600 dark:text-amber-300" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 font-medium">{stats?.activePeriodLabel}</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats?.activePeriodValue}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{stats?.activePeriodLabel}</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activePeriodValue}</p>
                             </div>
                         </div>
                     </div>

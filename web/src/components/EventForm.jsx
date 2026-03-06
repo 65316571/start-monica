@@ -233,93 +233,93 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 transition-opacity">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transition-colors duration-200">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEditMode ? '编辑事件' : '添加新事件'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <X size={24} />
           </button>
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-md text-sm">
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-md text-sm">
               {error}
             </div>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">事件名称 *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">事件名称 *</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
                   required
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">日期</label>
                 <input
                   type="date"
                   name="event_date"
                   value={formData.event_date}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">类型</label>
                 <input
                   type="text"
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
                   placeholder="例如：聚餐、会议"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
                 />
             </div>
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">地点</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">地点</label>
                 <input
                   type="text"
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
                 />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">描述</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
               rows="2"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               参与人
             </label>
-            <div className="flex flex-wrap gap-2 mb-2 p-2 border border-gray-200 rounded-md min-h-[42px]">
-              {selectedPeople.length === 0 && <span className="text-gray-400 text-sm">暂无参与人</span>}
+            <div className="flex flex-wrap gap-2 mb-2 p-2 border border-gray-200 dark:border-gray-700 rounded-md min-h-[42px] bg-white dark:bg-gray-700 transition-colors">
+              {selectedPeople.length === 0 && <span className="text-gray-400 dark:text-gray-500 text-sm">暂无参与人</span>}
               {selectedPeople.map(person => (
-                <span key={person.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                <span key={person.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 transition-colors">
                   {person.name}
                   <button
                     type="button"
                     onClick={() => togglePerson(person)}
-                    className="ml-1 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none"
+                    className="ml-1 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none transition-colors"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -333,13 +333,13 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
                     type="text"
                     value={peopleSearch}
                     onChange={(e) => setPeopleSearch(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
                     placeholder="搜索并添加参与人..."
                 />
                 <select
                     value={tagFilter}
                     onChange={(e) => setTagFilter(e.target.value)}
-                    className="w-32 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-32 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
                 >
                     <option value="all">所有标签</option>
                     {tags.map(tag => (
@@ -348,7 +348,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
                 </select>
               </div>
               
-              <div className="w-full bg-white shadow-inner border border-gray-200 rounded-md max-h-40 overflow-y-auto">
+              <div className="w-full bg-white dark:bg-gray-800 shadow-inner border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto transition-colors">
                   {(() => {
                     const searchResults = people.filter(p => {
                         const matchesName = p.name.toLowerCase().includes(peopleSearch.toLowerCase());
@@ -357,7 +357,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
                     });
 
                     return searchResults.length === 0 ? (
-                      <div className="px-4 py-2 text-gray-500 text-sm">未找到人物</div>
+                      <div className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">未找到人物</div>
                     ) : (
                       searchResults.map(person => {
                           const isSelected = selectedPeople.some(p => p.id === person.id);
@@ -365,13 +365,17 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
                             <div
                                 key={person.id}
                                 onClick={() => togglePerson(person)}
-                                className={`cursor-pointer select-none relative py-2 pl-3 pr-9 text-sm border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50 text-blue-900' : 'text-gray-900 hover:bg-gray-50'}`}
+                                className={`cursor-pointer select-none relative py-2 pl-3 pr-9 text-sm border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors ${
+                                    isSelected 
+                                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100' 
+                                        : 'text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
                             >
                                 <span className={`block truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}>
                                     {person.name}
                                 </span>
                                 {isSelected && (
-                                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-600">
+                                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-600 dark:text-blue-400">
                                         <Check className="h-4 w-4" />
                                     </span>
                                 )}
@@ -384,18 +388,18 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="mr-3 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="mr-3 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors"
             >
               {loading ? '保存中...' : '保存'}
             </button>

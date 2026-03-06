@@ -372,42 +372,42 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 h-full flex flex-col">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">仪表盘</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">仪表盘</h1>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white overflow-hidden shadow rounded-lg p-5 flex items-center">
-          <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
-            <Users className="h-6 w-6 text-blue-600" />
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg p-5 flex items-center transition-colors duration-200">
+          <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/50 rounded-md p-3">
+            <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">人物总数</dt>
-              <dd className="text-3xl font-semibold text-gray-900">{stats.people}</dd>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">人物总数</dt>
+              <dd className="text-3xl font-semibold text-gray-900 dark:text-white">{stats.people}</dd>
             </dl>
           </div>
         </div>
         
-        <div className="bg-white overflow-hidden shadow rounded-lg p-5 flex items-center">
-          <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-            <Calendar className="h-6 w-6 text-green-600" />
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg p-5 flex items-center transition-colors duration-200">
+          <div className="flex-shrink-0 bg-green-100 dark:bg-green-900/50 rounded-md p-3">
+            <Calendar className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">事件总数</dt>
-              <dd className="text-3xl font-semibold text-gray-900">{stats.events}</dd>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">事件总数</dt>
+              <dd className="text-3xl font-semibold text-gray-900 dark:text-white">{stats.events}</dd>
             </dl>
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg p-5 flex items-center">
-          <div className="flex-shrink-0 bg-purple-100 rounded-md p-3">
-            <Activity className="h-6 w-6 text-purple-600" />
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg p-5 flex items-center transition-colors duration-200">
+          <div className="flex-shrink-0 bg-purple-100 dark:bg-purple-900/50 rounded-md p-3">
+            <Activity className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">关系连接数</dt>
-              <dd className="text-3xl font-semibold text-gray-900">{stats.relationships}</dd>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">关系连接数</dt>
+              <dd className="text-3xl font-semibold text-gray-900 dark:text-white">{stats.relationships}</dd>
             </dl>
           </div>
         </div>
@@ -415,16 +415,16 @@ const Dashboard = () => {
 
       {/* Relationship Graph */}
       {showGraph && (
-        <div className="flex-1 bg-white shadow rounded-lg overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900">人际关系网络</h3>
+        <div className="flex-1 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col transition-colors duration-200">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">人际关系网络</h3>
             
             <div className="flex items-center space-x-4">
                 {/* Reset Button */}
                 {expandedClusters.size > 0 && (
                     <button 
                         onClick={handleResetClusters}
-                        className="flex items-center px-3 py-1.5 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors"
+                        className="flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
                     >
                         <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                         重置视图
@@ -432,17 +432,17 @@ const Dashboard = () => {
                 )}
 
                 {/* Tag Filter */}
-                <div className="flex items-center bg-gray-50 rounded-md px-3 py-1.5 border border-gray-200">
-                    <Filter className="h-4 w-4 text-gray-500 mr-2" />
-                    <span className="text-sm text-gray-600 mr-2">筛选:</span>
+                <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-md px-3 py-1.5 border border-gray-200 dark:border-gray-600">
+                    <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 mr-2">筛选:</span>
                     <select 
-                        className="text-sm bg-transparent border-none focus:ring-0 text-gray-700 font-medium cursor-pointer outline-none"
+                        className="text-sm bg-transparent border-none focus:ring-0 text-gray-700 dark:text-gray-200 font-medium cursor-pointer outline-none"
                         value={selectedTag}
                         onChange={(e) => setSelectedTag(e.target.value)}
                     >
-                        <option value="all">全部关系</option>
+                        <option value="all" className="text-gray-900 dark:text-gray-900">全部关系</option>
                         {availableTags.map(tag => (
-                            <option key={tag} value={tag}>{tag}</option>
+                            <option key={tag} value={tag} className="text-gray-900 dark:text-gray-900">{tag}</option>
                         ))}
                     </select>
                 </div>
