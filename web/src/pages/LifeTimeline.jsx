@@ -213,7 +213,7 @@ const LifeTimeline = () => {
       {/* Top Navigation */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
         <div className="flex items-center space-x-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">人生浏览</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">人生浏览</h2>
             <div className="flex bg-white dark:bg-gray-700 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
                 <button 
                     onClick={() => setZoomLevel('decade')}

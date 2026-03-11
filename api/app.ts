@@ -19,6 +19,7 @@ import personTagsRoutes from './routes/person_tags.js'
 import eventParticipantsRoutes from './routes/event_participants.js'
 import relationshipsRoutes from './routes/relationships.js'
 import dataRoutes from './routes/data.js'
+import imagesRoutes from './routes/images.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -44,6 +45,7 @@ app.use('/api/person_tags', personTagsRoutes)
 app.use('/api/event_participants', eventParticipantsRoutes)
 app.use('/api/relationships', relationshipsRoutes)
 app.use('/api/data', dataRoutes)
+app.use('/api/images', imagesRoutes)
 
 /**
  * health

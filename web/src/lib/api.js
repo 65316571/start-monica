@@ -5,7 +5,7 @@ const request = async (url, options = {}) => {
     const res = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers,
       },
     });
@@ -80,5 +80,28 @@ export const api = {
     clear: () => request(`${API_URL}/data/clear`, { method: 'POST' }),
     export: () => request(`${API_URL}/data/export`),
     import: (data) => request(`${API_URL}/data/import`, { method: 'POST', body: JSON.stringify(data) }),
+  },
+  images: {
+    list: (params) => {
+        let url = `${API_URL}/images`;
+        if (params) {
+            const query = new URLSearchParams(params).toString();
+            url += `?${query}`;
+        }
+        return request(url);
+    },
+    upload: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return request(`${API_URL}/images/upload`, { method: 'POST', body: formData });
+    },
+    delete: (id) => request(`${API_URL}/images/${id}`, { method: 'DELETE' }),
+    rename: (id, filename) => request(`${API_URL}/images/${id}/rename`, { method: 'PUT', body: JSON.stringify({ filename }) }),
+    getTags: () => request(`${API_URL}/images/tags`),
+    createTag: (name, color) => request(`${API_URL}/images/tags`, { method: 'POST', body: JSON.stringify({ name, color }) }),
+    addTag: (id, tagId) => request(`${API_URL}/images/${id}/tags`, { method: 'POST', body: JSON.stringify({ tagId }) }),
+    removeTag: (id, tagId) => request(`${API_URL}/images/${id}/tags/${tagId}`, { method: 'DELETE' }),
+    batchDelete: (ids) => request(`${API_URL}/images/batch/delete`, { method: 'POST', body: JSON.stringify({ ids }) }),
+    batchAddTag: (ids, tagId) => request(`${API_URL}/images/batch/tags`, { method: 'POST', body: JSON.stringify({ ids, tagId }) }),
   }
 };

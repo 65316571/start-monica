@@ -1,18 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Plus, Trash, Tag, Edit, Save, X } from 'lucide-react';
+import { Plus, Trash, Tag, Edit, Save, X, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award } from 'lucide-react';
+
+const ICONS = {
+  Tag, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award
+};
+
+const IconSelector = ({ selected, onSelect, color }) => {
+  return (
+    <div className="grid grid-cols-5 gap-2 mt-2 p-2 border rounded-md dark:border-gray-600 max-h-40 overflow-y-auto">
+      {Object.entries(ICONS).map(([name, Icon]) => (
+        <button
+          key={name}
+          type="button"
+          onClick={() => onSelect(name)}
+          className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-center items-center ${
+            selected === name ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''
+          }`}
+          title={name}
+        >
+          <Icon className="w-5 h-5" style={{ color: selected === name ? color : 'currentColor' }} />
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const Tags = () => {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newTag, setNewTag] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#3b82f6'); // Default blue
+  const [newTagColor, setNewTagColor] = useState('#3b82f6');
+  const [newTagIcon, setNewTagIcon] = useState('Tag');
   const [error, setError] = useState(null);
   
   // Editing state
   const [editingTagId, setEditingTagId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editIcon, setEditIcon] = useState('');
 
   useEffect(() => {
     fetchTags();
@@ -35,13 +61,18 @@ const Tags = () => {
     if (!newTag.trim()) return;
 
     try {
-      const { data, error } = await api.tags.create({ name: newTag.trim(), color: newTagColor });
+      const { data, error } = await api.tags.create({ 
+        name: newTag.trim(), 
+        color: newTagColor,
+        icon: newTagIcon 
+      });
 
       if (error) throw error;
 
       setTags([data, ...tags]);
       setNewTag('');
       setNewTagColor('#3b82f6');
+      setNewTagIcon('Tag');
       setError(null);
     } catch (err) {
       setError(err.message.includes('unique constraint') ? '标签已存在' : err.message);
@@ -52,23 +83,29 @@ const Tags = () => {
     setEditingTagId(tag.id);
     setEditName(tag.name);
     setEditColor(tag.color || '#3b82f6');
+    setEditIcon(tag.icon || 'Tag');
   };
 
   const cancelEdit = () => {
     setEditingTagId(null);
     setEditName('');
     setEditColor('');
+    setEditIcon('');
   };
 
   const handleUpdateTag = async (id) => {
     if (!editName.trim()) return;
 
     try {
-      const { error } = await api.tags.update(id, { name: editName.trim(), color: editColor });
+      const { error } = await api.tags.update(id, { 
+        name: editName.trim(), 
+        color: editColor,
+        icon: editIcon
+      });
 
       if (error) throw error;
 
-      setTags(tags.map(t => t.id === id ? { ...t, name: editName.trim(), color: editColor } : t));
+      setTags(tags.map(t => t.id === id ? { ...t, name: editName.trim(), color: editColor, icon: editIcon } : t));
       setEditingTagId(null);
     } catch (err) {
       console.error('Error updating tag:', err);
@@ -91,6 +128,11 @@ const Tags = () => {
     }
   };
 
+  const renderIcon = (iconName, color, className = "w-5 h-5") => {
+    const Icon = ICONS[iconName] || ICONS.Tag;
+    return <Icon className={className} style={{ color }} />;
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -106,34 +148,45 @@ const Tags = () => {
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">添加新标签</h2>
           <form onSubmit={handleAddTag}>
             <div className="mb-4">
-              <label htmlFor="tagName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 标签名称
               </label>
               <input
                 type="text"
-                id="tagName"
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors"
                 placeholder="例如：#小学同学"
               />
             </div>
+            
             <div className="mb-4">
-              <label htmlFor="tagColor" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 标签颜色
               </label>
               <div className="flex gap-2 items-center">
                 <input
                   type="color"
-                  id="tagColor"
                   value={newTagColor}
                   onChange={(e) => setNewTagColor(e.target.value)}
-                  className="h-9 w-16 p-0 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700"
+                  className="h-9 w-full p-1 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700"
                 />
-                <span className="text-sm text-gray-500 dark:text-gray-400">{newTagColor}</span>
               </div>
             </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                标签图标
+              </label>
+              <IconSelector 
+                selected={newTagIcon} 
+                onSelect={setNewTagIcon} 
+                color={newTagColor}
+              />
+            </div>
+
             {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            
             <button
               type="submit"
               disabled={!newTag.trim()}
@@ -160,34 +213,42 @@ const Tags = () => {
               {tags.map((tag) => (
                 <li key={tag.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   {editingTagId === tag.id ? (
-                    <div className="flex items-center flex-1 gap-4">
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-white"
-                      />
-                      <input
-                        type="color"
-                        value={editColor}
-                        onChange={(e) => setEditColor(e.target.value)}
-                        className="h-8 w-12 p-0 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700"
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={() => handleUpdateTag(tag.id)} className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-                          <Save className="h-4 w-4" />
-                        </button>
-                        <button onClick={cancelEdit} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                          <X className="h-4 w-4" />
-                        </button>
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-white"
+                        />
+                        <input
+                          type="color"
+                          value={editColor}
+                          onChange={(e) => setEditColor(e.target.value)}
+                          className="h-8 w-12 p-0 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-700"
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleUpdateTag(tag.id)} className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 p-1">
+                            <Save className="h-5 w-5" />
+                          </button>
+                          <button onClick={cancelEdit} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1">
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
+                      <IconSelector 
+                        selected={editIcon} 
+                        onSelect={setEditIcon} 
+                        color={editColor} 
+                      />
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center">
-                        <Tag className="h-5 w-5 mr-3" style={{ color: tag.color || '#9ca3af' }} />
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-700">
+                          {renderIcon(tag.icon, tag.color)}
+                        </div>
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{tag.name}</span>
-                        <span className="ml-2 w-3 h-3 rounded-full" style={{ backgroundColor: tag.color || '#3b82f6' }} title={tag.color}></span>
                       </div>
                       <div className="flex gap-2">
                         <button

@@ -1,23 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, Database, Tag, Activity, BarChart2, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, Database, Tag, Activity, BarChart2, X, Image as ImageIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTheme } from '../hooks/useTheme';
 
 const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [tabs, setTabs] = useState([]);
+  const { menuItems } = useTheme();
 
-  const navItems = [
-    { name: '仪表盘', path: '/', icon: LayoutDashboard, color: 'text-blue-500' },
-    { name: '人生浏览', path: '/timeline', icon: Activity, color: 'text-orange-500' },
-    { name: '数据统计', path: '/statistics', icon: BarChart2, color: 'text-red-500' },
-    { name: '人物管理', path: '/people', icon: Users, color: 'text-green-500' },
-    { name: '事件记录', path: '/events', icon: Calendar, color: 'text-purple-500' },
-    { name: '标签管理', path: '/tags', icon: Tag, color: 'text-indigo-500' },
-    { name: '数据管理', path: '/data', icon: Database, color: 'text-cyan-500' },
-    { name: '设置中心', path: '/settings', icon: Settings, color: 'text-gray-500' },
+  const defaultNavItems = [
+    { name: '仪表盘', path: '/', icon: LayoutDashboard, color: 'text-blue-500', id: 'dashboard' },
+    { name: '人生浏览', path: '/timeline', icon: Activity, color: 'text-orange-500', id: 'timeline' },
+    { name: '数据统计', path: '/statistics', icon: BarChart2, color: 'text-red-500', id: 'statistics' },
+    { name: '事件记录', path: '/events', icon: Calendar, color: 'text-purple-500', id: 'events' },
+    { name: '人物管理', path: '/people', icon: Users, color: 'text-green-500', id: 'people' },
+    { name: '标签管理', path: '/tags', icon: Tag, color: 'text-indigo-500', id: 'tags' },
+    { name: '图片管理', path: '/images', icon: ImageIcon, color: 'text-pink-500', id: 'images' },
+    { name: '数据管理', path: '/data', icon: Database, color: 'text-cyan-500', id: 'data' },
+    { name: '设置中心', path: '/settings', icon: Settings, color: 'text-gray-500', id: 'settings' },
   ];
+
+  // Combine default items with stored custom names and order
+  const displayNavItems = React.useMemo(() => {
+    if (!menuItems || menuItems.length === 0) return defaultNavItems;
+    
+    // Map default items by ID for easy lookup of static properties (icon, path, color)
+    const defaultItemsMap = defaultNavItems.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+    }, {});
+
+    // Create sorted list based on stored menuItems order and names
+    const sorted = menuItems.map(storedItem => {
+        const defaultItem = defaultItemsMap[storedItem.id];
+        if (!defaultItem) return null; // Skip if item no longer exists in defaults
+        
+        return {
+            ...defaultItem,
+            name: storedItem.name || defaultItem.name // Use stored name if available
+        };
+    }).filter(Boolean); // Remove nulls
+
+    // Append any new default items that might be missing from storage (e.g. new features)
+    const storedIds = new Set(menuItems.map(i => i.id));
+    const missingItems = defaultNavItems.filter(i => !storedIds.has(i.id));
+    
+    return [...sorted, ...missingItems];
+  }, [menuItems]);
+  
+  // Use displayNavItems for logic to ensure custom names are used in Tabs
+  const navItems = displayNavItems; 
 
   // Initialize tabs from sessionStorage or current route
   useEffect(() => {
@@ -86,7 +120,7 @@ const Layout = ({ children }) => {
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">⭐Start Monica</h1>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
+          {displayNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (

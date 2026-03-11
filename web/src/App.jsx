@@ -11,6 +11,7 @@ import DataManagement from './pages/DataManagement';
 import Settings from './pages/Settings';
 import LifeTimeline from './pages/LifeTimeline';
 import Statistics from './pages/Statistics';
+import Images from './pages/Images';
 
 function App() {
   useEffect(() => {
@@ -35,6 +36,7 @@ function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/tags" element={<Tags />} />
+          <Route path="/images" element={<Images />} />
           <Route path="/data" element={<DataManagement />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

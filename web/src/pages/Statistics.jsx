@@ -135,8 +135,7 @@ const Statistics = () => {
   return (
     <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
-                <BarChart2 className="mr-3 h-8 w-8 text-blue-600 dark:text-blue-400" />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 数据统计
             </h1>
             

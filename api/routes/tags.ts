@@ -16,19 +16,19 @@ router.get('/', async (req, res) => {
 // Create a tag
 router.post('/', async (req, res) => {
   try {
-    const { id, name, color } = req.body;
+    const { id, name, color, icon } = req.body;
     let query, params;
 
     if (id) {
-        query = `INSERT INTO tags (id, name, color) 
-                 VALUES ($1, $2, $3) 
+        query = `INSERT INTO tags (id, name, color, icon) 
+                 VALUES ($1, $2, $3, $4) 
                  ON CONFLICT (id) DO UPDATE 
-                 SET name = EXCLUDED.name, color = EXCLUDED.color
+                 SET name = EXCLUDED.name, color = EXCLUDED.color, icon = EXCLUDED.icon
                  RETURNING *`;
-        params = [id, name, color];
+        params = [id, name, color, icon];
     } else {
-        query = `INSERT INTO tags (name, color) VALUES ($1, $2) RETURNING *`;
-        params = [name, color];
+        query = `INSERT INTO tags (name, color, icon) VALUES ($1, $2, $3) RETURNING *`;
+        params = [name, color, icon];
     }
 
     const result = await pool.query(query, params);
@@ -42,10 +42,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, color } = req.body;
+    const { name, color, icon } = req.body;
     const result = await pool.query(
-      `UPDATE tags SET name = $1, color = $2 WHERE id = $3 RETURNING *`,
-      [name, color, id]
+      `UPDATE tags SET name = $1, color = $2, icon = $3 WHERE id = $4 RETURNING *`,
+      [name, color, icon, id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tag not found' });
