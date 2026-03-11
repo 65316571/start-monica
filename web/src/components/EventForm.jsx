@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { X, Plus, Trash, Search, Check } from 'lucide-react';
 
 const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
@@ -43,11 +43,11 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
   }, [initialData]);
 
   const fetchTags = async () => {
-    const { data } = await supabase.from('tags').select('id, name').order('name');
+    const { data } = await api.tags.list();
     if (data) setTags(data);
     
     // Fetch person-tag relationships
-    const { data: pt } = await supabase.from('person_tags').select('person_id, tag_id');
+    const { data: pt } = await api.personTags.list();
     if (pt) {
         const map = {};
         pt.forEach(item => {
@@ -59,15 +59,12 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
   };
 
   const fetchPeople = async () => {
-    const { data } = await supabase.from('people').select('id, name').order('name');
+    const { data } = await api.people.list();
     if (data) setPeople(data);
   };
 
   const fetchParticipants = async (eventId) => {
-    const { data } = await supabase
-      .from('event_participants')
-      .select('people(id, name)')
-      .eq('event_id', eventId);
+    const { data } = await api.eventParticipants.list(eventId);
     
     if (data) {
       setSelectedPeople(data.map(item => item.people));
@@ -90,10 +87,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
     if (personIds.length < 2) return;
 
     // Fetch tags for all involved people to check for common tags
-    const { data: personTags } = await supabase
-      .from('person_tags')
-      .select('person_id, tag_id')
-      .in('person_id', personIds);
+    const { data: personTags } = await api.personTags.list();
 
     // Map person_id -> Set of tag_ids
     const tagsMap = {};
@@ -117,28 +111,22 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
 
             // Only update relationship if they have at least one common tag
             if (commonTags.length > 0) {
-                const { data: existing } = await supabase
-                    .from('relationships')
-                    .select('id, strength')
-                    .eq('person_a_id', personA)
-                    .eq('person_b_id', personB)
-                    .maybeSingle();
+                const { data: existingList } = await api.relationships.list({
+                    person_a_id: personA,
+                    person_b_id: personB
+                });
+                const existing = existingList && existingList.length > 0 ? existingList[0] : null;
 
                 if (existing) {
-                     await supabase
-                        .from('relationships')
-                        .update({ strength: existing.strength + 1 })
-                        .eq('id', existing.id);
+                     await api.relationships.update(existing.id, { strength: existing.strength + 1 });
                 } else {
-                    await supabase
-                        .from('relationships')
-                        .insert({
-                            person_a_id: personA,
-                            person_b_id: personB,
-                            type: 'Based on Tags', // Or specific tag name if just one? Keep it generic for now.
-                            strength: 1,
-                            source: 'event+tag'
-                        });
+                    await api.relationships.create({
+                        person_a_id: personA,
+                        person_b_id: personB,
+                        type: 'Based on Tags', // Or specific tag name if just one? Keep it generic for now.
+                        strength: 1,
+                        source: 'event+tag'
+                    });
                 }
             }
         }
@@ -161,20 +149,13 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
 
       if (isEditMode) {
         // Update Event
-        const { error: updateError } = await supabase
-          .from('events')
-          .update(formData)
-          .eq('id', initialData.id);
+        const { error: updateError } = await api.events.update(initialData.id, formData);
         
         if (updateError) throw updateError;
         eventId = initialData.id;
       } else {
         // Create Event
-        const { data: eventData, error: eventError } = await supabase
-          .from('events')
-          .insert([formData])
-          .select()
-          .single();
+        const { data: eventData, error: eventError } = await api.events.create(formData);
 
         if (eventError) throw eventError;
         eventId = eventData.id;
@@ -182,7 +163,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
 
       // Update Participants (Delete all and re-insert for simplicity)
       if (isEditMode) {
-        await supabase.from('event_participants').delete().eq('event_id', eventId);
+        await api.eventParticipants.delete(eventId);
       }
 
       if (selectedPeople.length > 0) {
@@ -191,9 +172,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
           person_id: p.id
         }));
         
-        const { error: partError } = await supabase
-          .from('event_participants')
-          .insert(participantsData);
+        const { error: partError } = await api.eventParticipants.create(participantsData);
 
         if (partError) throw partError;
         
@@ -204,19 +183,7 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
       }
 
       // Fetch final event data
-      const { data: finalEvent } = await supabase
-        .from('events')
-        .select(`
-            *,
-            event_participants (
-            people (
-                id,
-                name
-            )
-            )
-        `)
-        .eq('id', eventId)
-        .single();
+      const { data: finalEvent } = await api.events.get(eventId);
 
       onEventUpdated(finalEvent);
       onClose();

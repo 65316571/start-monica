@@ -4,7 +4,7 @@ import { ToggleLeft, ToggleRight, Save } from 'lucide-react';
 const Settings = () => {
   const [showGraph, setShowGraph] = useState(true);
   const [colorByTag, setColorByTag] = useState(true);
-  const [theme, setTheme] = useState('light'); // 'light' or 'dark'
+  const [theme, setTheme] = useState(() => localStorage.getItem('monica_theme') || 'light');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {

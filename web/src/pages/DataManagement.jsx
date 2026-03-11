@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Download, Upload, FileJson, CheckCircle, AlertCircle, Database, Trash2, Edit, Plus, X, Search, ChevronDown, ChevronUp, Eye, LayoutDashboard, Users, Calendar, Activity, PieChart } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -80,31 +80,40 @@ const DataManagement = () => {
 
   const fetchTableData = async (table) => {
       setTableLoading(true);
-      const start = (page - 1) * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
       
-      let query = supabase.from(table).select('*', { count: 'exact' });
+      let res;
+      if (table === 'people') res = await api.people.list();
+      else if (table === 'events') res = await api.events.list();
+      else if (table === 'tags') res = await api.tags.list();
+      else if (table === 'relationships') res = await api.relationships.list();
       
-      if (searchTerm) {
-          // Simple search implementation based on common text fields
-          if (table === 'people' || table === 'tags') {
-              query = query.ilike('name', `%${searchTerm}%`);
-          } else if (table === 'events') {
-              query = query.ilike('name', `%${searchTerm}%`);
-          }
-      }
-
-      // Apply sorting
-      if (sortConfig.key) {
-          query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
-      }
-
-      const { data, error, count } = await query.range(start, end);
+      const { data, error } = res;
       
       if (error) {
           console.error(`Error fetching ${table}:`, error);
       } else {
-          setTableData(data || []);
+          // Client side search and sort for simplicity since we've already changed the backend calls
+          let filteredData = data || [];
+          if (searchTerm) {
+              const term = searchTerm.toLowerCase();
+              filteredData = filteredData.filter(item => 
+                  (item.name && item.name.toLowerCase().includes(term)) ||
+                  (item.id && item.id.toLowerCase().includes(term))
+              );
+          }
+          
+          if (sortConfig.key) {
+              filteredData.sort((a, b) => {
+                  const valA = a[sortConfig.key];
+                  const valB = b[sortConfig.key];
+                  if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                  if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                  return 0;
+              });
+          }
+
+          const start = (page - 1) * PAGE_SIZE;
+          setTableData(filteredData.slice(start, start + PAGE_SIZE));
       }
       setTableLoading(false);
   };
@@ -112,7 +121,12 @@ const DataManagement = () => {
   const handleDelete = async (table, id) => {
       if (!window.confirm('确定要删除这条数据吗？此操作不可恢复。')) return;
       
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      let res;
+      if (table === 'people') res = await api.people.delete(id);
+      else if (table === 'events') res = await api.events.delete(id);
+      else if (table === 'tags') res = await api.tags.delete(id);
+      
+      const { error } = res;
       if (error) {
           alert(`删除失败: ${error.message}`);
       } else {
@@ -220,32 +234,18 @@ const DataManagement = () => {
   const handleExport = async () => {
     setLoading(true);
     try {
-      // Fetch all data
-      const { data: people } = await supabase.from('people').select('*');
-      const { data: events } = await supabase.from('events').select('*');
-      const { data: tags } = await supabase.from('tags').select('*');
-      const { data: relationships } = await supabase.from('relationships').select('*');
-      const { data: eventParticipants } = await supabase.from('event_participants').select('*');
-      const { data: personTags } = await supabase.from('person_tags').select('*');
+      const { data } = await api.data.export();
 
       const exportData = {
         version: 1,
         timestamp: new Date().toISOString(),
-        data: {
-          people: people || [],
-          events: events || [],
-          tags: tags || [],
-          relationships: relationships || [],
-          event_participants: eventParticipants || [],
-          person_tags: personTags || []
-        }
+        data: data
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       setExportUrl(url);
       
-      // Auto download
       const a = document.createElement('a');
       a.href = url;
       a.download = `start-monica-export-${new Date().toISOString().split('T')[0]}.json`;
@@ -261,7 +261,6 @@ const DataManagement = () => {
     }
   };
 
-  // --- Import Functionality ---
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -277,45 +276,11 @@ const DataManagement = () => {
           throw new Error('无效的导入文件格式');
         }
 
-        const { people, events, tags, relationships, event_participants, person_tags } = json.data;
-
-        // 1. Upsert People
-        if (people?.length) {
-            const { error } = await supabase.from('people').upsert(people);
-            if (error) throw error;
-        }
-
-        // 2. Upsert Tags
-        if (tags?.length) {
-            const { error } = await supabase.from('tags').upsert(tags);
-            if (error) throw error;
-        }
-
-        // 3. Upsert Events
-        if (events?.length) {
-            const { error } = await supabase.from('events').upsert(events);
-            if (error) throw error;
-        }
-
-        // 4. Upsert Relationships
-        if (relationships?.length) {
-            const { error } = await supabase.from('relationships').upsert(relationships);
-            if (error) throw error;
-        }
-
-        // 5. Upsert Junction Tables
-        if (event_participants?.length) {
-            const { error } = await supabase.from('event_participants').upsert(event_participants);
-            if (error) throw error;
-        }
-
-        if (person_tags?.length) {
-            const { error } = await supabase.from('person_tags').upsert(person_tags);
-            if (error) throw error;
-        }
+        const { error } = await api.data.import(json.data);
+        if (error) throw error;
 
         setImportStatus({ type: 'success', message: '数据导入成功！' });
-        e.target.value = null; // Reset input
+        e.target.value = null;
 
       } catch (error) {
         console.error('Import failed:', error);
@@ -328,22 +293,13 @@ const DataManagement = () => {
     reader.readAsText(file);
   };
 
-  // --- Clear All Functionality ---
   const handleClearAllData = async () => {
       if (clearConfirmation !== '确认删除') return;
       
       setLoading(true);
       try {
-          // Delete in order to respect foreign keys
-          // 1. Junction tables
-          await supabase.from('event_participants').delete().neq('id', 0); // Delete all
-          await supabase.from('person_tags').delete().neq('id', 0);
-          
-          // 2. Main tables
-          await supabase.from('relationships').delete().neq('id', 0);
-          await supabase.from('events').delete().neq('id', 0);
-          await supabase.from('people').delete().neq('id', 0);
-          await supabase.from('tags').delete().neq('id', 0);
+          const { error } = await api.data.clear();
+          if (error) throw error;
           
           alert('所有数据已清空');
           setShowClearModal(false);

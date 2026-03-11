@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import ForceGraph2D from 'react-force-graph-2d';
 import { Users, Calendar, Activity, Filter, RotateCcw } from 'lucide-react';
 import { stringToColor } from '../lib/utils';
@@ -67,20 +67,19 @@ const Dashboard = () => {
     setLoading(true);
     try {
       // Fetch stats
-      const { count: peopleCount } = await supabase.from('people').select('*', { count: 'exact', head: true });
-      const { count: eventsCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
-      const { count: relCount } = await supabase.from('relationships').select('*', { count: 'exact', head: true });
+      const { data: people } = await api.people.list();
+      const { data: events } = await api.events.list();
+      const { data: relationships } = await api.relationships.list();
+      const { data: personTags } = await api.personTags.list();
 
       setStats({
-        people: peopleCount || 0,
-        events: eventsCount || 0,
-        relationships: relCount || 0
+        people: people?.length || 0,
+        events: events?.length || 0,
+        relationships: relationships?.length || 0
       });
 
       // Fetch graph data
-      const { data: people } = await supabase.from('people').select('id, name');
-      const { data: relationships } = await supabase.from('relationships').select('person_a_id, person_b_id, strength, type');
-      const { data: personTags } = await supabase.from('person_tags').select('person_id, tags(id, name, color)');
+      // already fetched above for stats
 
       if (people) {
         const nodes = people.map(p => ({ id: p.id, name: p.name, val: 1 }));

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Plus, Edit, Calendar, MapPin, Users, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import EventForm from '../components/EventForm';
 
@@ -40,18 +40,7 @@ const Events = () => {
 
   const fetchEvents = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        event_participants (
-          people (
-            id,
-            name
-          )
-        )
-      `)
-      .order('event_date', { ascending: false });
+    const { data, error } = await api.events.list();
 
     if (error) {
       console.error('Error fetching events:', error);

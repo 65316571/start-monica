@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Plus, Search, Edit } from 'lucide-react';
 import PersonForm from '../components/PersonForm';
 import { Link } from 'react-router-dom';
@@ -33,10 +33,7 @@ const People = () => {
 
   const fetchPeople = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('people')
-      .select('*')
-      .order('name', { ascending: true });
+    const { data, error } = await api.people.list();
 
     if (error) {
       console.error('Error fetching people:', error);

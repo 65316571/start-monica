@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { ArrowLeft, Edit, Trash, Calendar, User, Tag } from 'lucide-react';
 import PersonForm from '../components/PersonForm';
 
@@ -21,39 +21,27 @@ const PersonDetail = () => {
     setLoading(true);
     try {
       // 1. Fetch Person Basic Info
-      const { data: personData, error: personError } = await supabase
-        .from('people')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data: personData, error: personError } = await api.people.get(id);
 
       if (personError) throw personError;
       setPerson(personData);
 
       // 2. Fetch Associated Tags
-      const { data: tagsData, error: tagsError } = await supabase
-        .from('person_tags')
-        .select('tags(id, name)')
-        .eq('person_id', id);
-
-      if (tagsError) throw tagsError;
-      setTags(tagsData.map(t => t.tags));
+      const { data: tagsData } = await api.personTags.list(id);
+      if (tagsData) {
+        setTags(tagsData.map(t => t.tags));
+      }
 
       // 3. Fetch Associated Events
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('event_participants')
-        .select('events(*)')
-        .eq('person_id', id);
-        // .order('created_at', { ascending: false, foreignTable: 'events' }); // Removed server-side sort to avoid issues
-
-      if (eventsError) throw eventsError;
+      const { data: eventsData } = await api.eventParticipants.list(null, id);
       
-      // Client-side sort if needed, or adjust query
-      const sortedEvents = eventsData
-        .map(ep => ep.events)
-        .sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
-        
-      setEvents(sortedEvents);
+      if (eventsData) {
+        const sortedEvents = eventsData
+          .map(ep => ep.events)
+          .filter(Boolean)
+          .sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+        setEvents(sortedEvents);
+      }
 
     } catch (error) {
       console.error('Error fetching person details:', error);
@@ -72,10 +60,7 @@ const PersonDetail = () => {
     if (!window.confirm('确定要删除这个人物吗？相关的关系和事件记录也会受到影响。')) return;
 
     try {
-      const { error } = await supabase
-        .from('people')
-        .delete()
-        .eq('id', id);
+      const { error } = await api.people.delete(id);
 
       if (error) throw error;
       

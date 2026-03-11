@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Calendar, Users, TrendingUp, Award, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import { format, startOfYear, endOfYear, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subYears, addYears, subMonths, addMonths, subWeeks, addWeeks, getMonth, isSameMonth, getWeek, getDay } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -18,23 +18,10 @@ const Statistics = () => {
   const fetchData = async () => {
     setLoading(true);
     // Fetch all events with participants
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select(`
-        *,
-        event_participants (
-          people (
-            id,
-            name,
-            created_at
-          )
-        )
-      `);
+    const { data: eventsData, error: eventsError } = await api.events.list();
 
     // Fetch all people to check 'created_at' for new connections
-    const { data: peopleData, error: peopleError } = await supabase
-      .from('people')
-      .select('id, name, created_at');
+    const { data: peopleData, error: peopleError } = await api.people.list();
 
     if (eventsData) setEvents(eventsData);
     if (peopleData) setPeople(peopleData);

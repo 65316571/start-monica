@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { ArrowLeft, Edit, Trash, Calendar, MapPin, Users, FileText } from 'lucide-react';
 import EventForm from '../components/EventForm';
 
@@ -20,23 +20,17 @@ const EventDetail = () => {
     setLoading(true);
     try {
       // 1. Fetch Event Basic Info
-      const { data: eventData, error: eventError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data: eventData, error: eventError } = await api.events.get(id);
 
       if (eventError) throw eventError;
       setEvent(eventData);
 
-      // 2. Fetch Participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('event_participants')
-        .select('people(*)')
-        .eq('event_id', id);
-
-      if (participantsError) throw participantsError;
-      setParticipants(participantsData.map(p => p.people));
+      // 2. Set Participants from event data
+      if (eventData?.event_participants) {
+          setParticipants(eventData.event_participants.map(p => p.people));
+      } else {
+          setParticipants([]);
+      }
 
     } catch (error) {
       console.error('Error fetching event details:', error);
@@ -55,10 +49,7 @@ const EventDetail = () => {
     if (!window.confirm('确定要删除这个事件吗？此操作不可恢复。')) return;
 
     try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', id);
+      const { error } = await api.events.delete(id);
 
       if (error) throw error;
       

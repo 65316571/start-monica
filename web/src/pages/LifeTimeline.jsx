@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Search, Plus, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, startOfYear, endOfYear, startOfMonth, endOfMonth, startOfWeek, endOfWeek, getYear, getMonth, getDate, differenceInDays, getDay } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -34,30 +34,13 @@ const LifeTimeline = () => {
   }, [events, currentDate, zoomLevel, searchQuery, selectedTag]); // Re-filter when search or tag changes
 
   const fetchTags = async () => {
-      const { data, error } = await supabase.from('tags').select('id, name');
+      const { data, error } = await api.tags.list();
       if (!error) setTags(data || []);
   };
 
   const fetchEvents = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        event_participants (
-          people (
-            id,
-            name,
-            person_tags (
-                tags (
-                    id,
-                    name
-                )
-            )
-          )
-        )
-      `)
-      .order('event_date', { ascending: true });
+    const { data, error } = await api.events.list();
 
     if (error) {
       console.error('Error fetching events:', error);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { X, Plus, Check } from 'lucide-react';
 import { chinaCities } from '../data/china_cities';
 
@@ -53,15 +53,12 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
   }, [initialData]);
 
   const fetchTags = async () => {
-    const { data } = await supabase.from('tags').select('*').order('name');
+    const { data } = await api.tags.list();
     if (data) setAvailableTags(data);
   };
 
   const fetchPersonTags = async (personId) => {
-    const { data } = await supabase
-      .from('person_tags')
-      .select('tag_id, tags(id, name)')
-      .eq('person_id', personId);
+    const { data } = await api.personTags.list(personId);
     
     if (data) {
       setSelectedTags(data.map(item => item.tags));
@@ -110,20 +107,13 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
 
       if (isEditMode) {
         // Update Person
-        const { error: updateError } = await supabase
-          .from('people')
-          .update(submitData)
-          .eq('id', initialData.id);
+        const { error: updateError } = await api.people.update(initialData.id, submitData);
         
         if (updateError) throw updateError;
         personId = initialData.id;
       } else {
         // Create Person
-        const { data, error: insertError } = await supabase
-          .from('people')
-          .insert([submitData])
-          .select()
-          .single();
+        const { data, error: insertError } = await api.people.create(submitData);
 
         if (insertError) throw insertError;
         personId = data.id;
@@ -132,7 +122,7 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
       // Update Tags (Delete all and re-insert for simplicity)
       // Note: This logic for tags is kept as requested (separate from identity)
       if (isEditMode) {
-        await supabase.from('person_tags').delete().eq('person_id', personId);
+        await api.personTags.delete(personId);
       }
 
       if (selectedTags.length > 0) {
@@ -140,16 +130,12 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
           person_id: personId,
           tag_id: tag.id
         }));
-        const { error: tagError } = await supabase.from('person_tags').insert(tagLinks);
+        const { error: tagError } = await api.personTags.create(tagLinks);
         if (tagError) throw tagError;
       }
 
       // Fetch the final person object to return
-      const { data: finalPerson } = await supabase
-        .from('people')
-        .select('*')
-        .eq('id', personId)
-        .single();
+      const { data: finalPerson } = await api.people.get(personId);
 
       onPersonUpdated(finalPerson);
       onClose();

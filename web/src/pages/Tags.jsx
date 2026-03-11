@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Plus, Trash, Tag, Edit, Save, X } from 'lucide-react';
 
 const Tags = () => {
@@ -20,10 +20,7 @@ const Tags = () => {
 
   const fetchTags = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('tags')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await api.tags.list();
 
     if (error) {
       console.error('Error fetching tags:', error);
@@ -38,11 +35,7 @@ const Tags = () => {
     if (!newTag.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from('tags')
-        .insert([{ name: newTag.trim(), color: newTagColor }])
-        .select()
-        .single();
+      const { data, error } = await api.tags.create({ name: newTag.trim(), color: newTagColor });
 
       if (error) throw error;
 
@@ -71,10 +64,7 @@ const Tags = () => {
     if (!editName.trim()) return;
 
     try {
-      const { error } = await supabase
-        .from('tags')
-        .update({ name: editName.trim(), color: editColor })
-        .eq('id', id);
+      const { error } = await api.tags.update(id, { name: editName.trim(), color: editColor });
 
       if (error) throw error;
 
@@ -90,10 +80,7 @@ const Tags = () => {
     if (!window.confirm('确定要删除这个标签吗？这将移除所有人物身上的此标签。')) return;
 
     try {
-      const { error } = await supabase
-        .from('tags')
-        .delete()
-        .eq('id', id);
+      const { error } = await api.tags.delete(id);
 
       if (error) throw error;
 
