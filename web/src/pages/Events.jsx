@@ -14,7 +14,12 @@ const Events = () => {
   const [selectedYear, setSelectedYear] = useState(() => sessionStorage.getItem('events_selectedYear') || 'all');
   const [selectedMonth, setSelectedMonth] = useState(() => sessionStorage.getItem('events_selectedMonth') || 'all');
   const [years, setYears] = useState([]);
-  const [sortOrder, setSortOrder] = useState(() => sessionStorage.getItem('events_sortOrder') || 'desc'); // 'desc' or 'asc'
+  const [sortOrder, setSortOrder] = useState(() => sessionStorage.getItem('events_sortOrder') || 'desc');
+  
+  // Lightbox state
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxImages, setLightboxImages] = useState([]);
 
   useEffect(() => {
     sessionStorage.setItem('events_searchTerm', searchTerm);
@@ -71,6 +76,31 @@ const Events = () => {
   const openEditModal = (event) => {
     setEditingEvent(event);
     setIsModalOpen(true);
+  };
+
+  // Lightbox handlers
+  const openLightbox = (images, index) => {
+    setLightboxImages(images);
+    setLightboxIndex(index);
+    setLightboxImage(images[index]);
+  };
+
+  const closeLightbox = () => {
+    setLightboxImage(null);
+    setLightboxImages([]);
+    setLightboxIndex(0);
+  };
+
+  const nextImage = () => {
+    const newIndex = (lightboxIndex + 1) % lightboxImages.length;
+    setLightboxIndex(newIndex);
+    setLightboxImage(lightboxImages[newIndex]);
+  };
+
+  const prevImage = () => {
+    const newIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    setLightboxIndex(newIndex);
+    setLightboxImage(lightboxImages[newIndex]);
   };
 
   const filteredEvents = events.filter(event => {
@@ -240,6 +270,29 @@ const Events = () => {
                                 <p className="mt-3 text-gray-600 dark:text-gray-300 text-sm">{event.description}</p>
                             )}
 
+                            {/* Images Preview */}
+                            {event.images && event.images.length > 0 && (
+                              <div className="mt-4 flex gap-2 overflow-x-auto">
+                                {event.images.slice(0, 4).map((image, index) => (
+                                  <img
+                                    key={image.id}
+                                    src={image.url}
+                                    alt={image.filename}
+                                    onClick={() => openLightbox(event.images, index)}
+                                    className="h-16 w-16 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                  />
+                                ))}
+                                {event.images.length > 4 && (
+                                  <div 
+                                    onClick={() => openLightbox(event.images, 4)}
+                                    className="h-16 w-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                  >
+                                    +{event.images.length - 4}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {/* Participants */}
                             <div className="mt-4 flex items-center flex-wrap gap-2">
                                 <Users className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
@@ -270,6 +323,63 @@ const Events = () => {
            onEventUpdated={handleEventUpdated}
            initialData={editingEvent}
          />
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          onClick={closeLightbox}
+        >
+          {/* Close button */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 p-2 text-white hover:text-gray-300 transition-colors z-50"
+          >
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Previous button */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-white hover:text-gray-300 transition-colors z-50"
+            >
+              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            src={lightboxImage.url}
+            alt={lightboxImage.filename}
+            className="max-w-[85vw] max-h-[80vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next button */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white hover:text-gray-300 transition-colors z-50"
+            >
+              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image counter */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded-full">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

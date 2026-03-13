@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Upload, Trash2, Copy, ExternalLink, Image as ImageIcon, Search, Plus, X, Tag, Edit2, CheckSquare, Square } from 'lucide-react';
+import { Upload, Trash2, Maximize2, Download, Image as ImageIcon, Search, Plus, X, Tag, Edit2, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
@@ -24,6 +24,13 @@ export default function Images() {
   const [editingImage, setEditingImage] = useState(null); // { id, filename }
   const [showTagModal, setShowTagModal] = useState(false);
   const [newTag, setNewTag] = useState({ name: '', color: '#3B82F6' });
+
+  // Lightbox state
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState(null);
 
   useEffect(() => {
     loadImages();
@@ -165,6 +172,65 @@ export default function Images() {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     // Simple toast notification could be added here
+  };
+
+  // Lightbox handlers
+  const openLightbox = (index) => {
+    setLightboxIndex(index);
+    setLightboxImage(images[index]);
+  };
+
+  const closeLightbox = () => {
+    setLightboxImage(null);
+    setLightboxIndex(0);
+  };
+
+  const nextImage = () => {
+    const newIndex = (lightboxIndex + 1) % images.length;
+    setLightboxIndex(newIndex);
+    setLightboxImage(images[newIndex]);
+  };
+
+  const prevImage = () => {
+    const newIndex = (lightboxIndex - 1 + images.length) % images.length;
+    setLightboxIndex(newIndex);
+    setLightboxImage(images[newIndex]);
+  };
+
+  // Context menu handlers
+  const handleContextMenu = (e, image) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 计算菜单位置，确保不超出屏幕
+    const menuWidth = 208; // w-52 = 13rem = 208px
+    const menuHeight = 250;
+    
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    // 如果靠近右边缘，菜单向左展开
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - 10;
+    }
+    
+    // 如果靠近底边缘，菜单向上展开
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - 10;
+    }
+    
+    setContextMenu({
+      x: x,
+      y: y,
+      imageId: image.id,
+      currentTags: image.tags || []
+    });
+    
+    return false;
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
   };
 
   return (
@@ -325,7 +391,15 @@ export default function Images() {
           <p className="text-gray-500 dark:text-gray-400">暂无图片，点击右上角上传</p>
         </div>
       ) : (
-        <div className={`grid gap-6 ${
+        <>
+          {/* Right-click hint */}
+          <div className="flex items-center gap-2 mb-4 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 px-3 py-2 rounded-lg">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>提示：右键点击图片可快速添加/移除标签</span>
+          </div>
+          <div className={`grid gap-6 ${
           imageSize === 'min' ? 'grid-cols-4 md:grid-cols-6 lg:grid-cols-8' :
           imageSize === 'small' ? 'grid-cols-3 md:grid-cols-5 lg:grid-cols-6' :
           imageSize === 'medium' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' :
@@ -355,35 +429,37 @@ export default function Images() {
                 </div>
               )}
 
-              <div className="aspect-square relative bg-gray-100 dark:bg-gray-900">
+              <div 
+                className="aspect-square relative bg-gray-100 dark:bg-gray-900"
+                onContextMenu={(e) => handleContextMenu(e, image)}
+              >
                 <img
                   src={image.url}
                   alt={image.filename}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
                   loading="lazy"
                   onClick={() => {
                     if (isSelectionMode) toggleSelection(image.id);
-                    else copyToClipboard(image.url);
+                    else openLightbox(images.indexOf(image));
                   }}
                 />
                 {!isSelectionMode && (
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => openLightbox(images.indexOf(image))}
+                      className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
+                      title="图片放大"
+                    >
+                      <Maximize2 className="w-5 h-5" />
+                    </button>
                     <a
                       href={image.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      download={image.filename}
                       className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
-                      title="在新标签页打开"
+                      title="下载图片"
                     >
-                      <ExternalLink className="w-5 h-5" />
+                      <Download className="w-5 h-5" />
                     </a>
-                    <button
-                      onClick={() => copyToClipboard(image.url)}
-                      className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
-                      title="复制链接"
-                    >
-                      <Copy className="w-5 h-5" />
-                    </button>
                     <button
                       onClick={() => { setIsSelectionMode(true); toggleSelection(image.id); }}
                       className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
@@ -407,7 +483,7 @@ export default function Images() {
                   <input
                     type="text"
                     autoFocus
-                    className="w-full px-2 py-1 text-sm border rounded"
+                    className="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
                     defaultValue={image.filename}
                     onBlur={(e) => handleRename(image.id, e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleRename(image.id, e.currentTarget.value)}
@@ -428,7 +504,7 @@ export default function Images() {
                   {(image.size / 1024).toFixed(1)} KB • {format(new Date(image.created_at), 'yyyy-MM-dd')}
                 </p>
 
-                {/* Tags List */}
+                {/* Tags List - Display only */}
                 <div className="mt-2 flex flex-wrap gap-1">
                   {image.tags?.map(tag => (
                     <span 
@@ -445,27 +521,12 @@ export default function Images() {
                       </button>
                     </span>
                   ))}
-                  <div className="relative group/add">
-                    <button className="text-xs text-blue-500 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                      + 标签
-                    </button>
-                    <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 rounded shadow-lg border hidden group-hover/add:block z-20 p-1">
-                      {tags.map(tag => (
-                        <button
-                          key={tag.id}
-                          onClick={() => handleAddTagToImage(image.id, tag.id)}
-                          className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 rounded truncate"
-                        >
-                          {tag.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
+        </>
       )}
 
       {/* Create Tag Modal */}
@@ -509,6 +570,135 @@ export default function Images() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50"
+          onClick={closeLightbox}
+        >
+          {/* Close button */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 p-2 text-white hover:text-gray-300 transition-colors z-50"
+          >
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Previous button */}
+          {images.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-white hover:text-gray-300 transition-colors z-50"
+            >
+              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            src={lightboxImage.url}
+            alt={lightboxImage.filename}
+            className="max-w-[85vw] max-h-[80vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next button */}
+          {images.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white hover:text-gray-300 transition-colors z-50"
+            >
+              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image info & counter */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-center">
+            <p className="text-sm font-medium mb-1">{lightboxImage.filename}</p>
+            {images.length > 1 && (
+              <p className="text-xs text-gray-400">
+                {lightboxIndex + 1} / {images.length}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-[100]"
+            onClick={closeContextMenu}
+          />
+          <div 
+            className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 z-[101] p-2 w-52"
+            style={{ 
+              top: Math.min(contextMenu.y, window.innerHeight - 250), 
+              left: Math.min(contextMenu.x, window.innerWidth - 220)
+            }}
+          >
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">管理标签</span>
+              <button 
+                onClick={closeContextMenu}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {tags.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-2">暂无标签，先去创建吧</p>
+              ) : (
+                tags.map(tag => {
+                  const isSelected = contextMenu.currentTags?.some(t => t.id === tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          handleRemoveTagFromImage(contextMenu.imageId, tag.id);
+                        } else {
+                          handleAddTagToImage(contextMenu.imageId, tag.id);
+                        }
+                        closeContextMenu();
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded transition-colors ${
+                        isSelected 
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <span 
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      <span className="flex-1 text-left truncate font-medium">{tag.name}</span>
+                      {isSelected && <CheckSquare className="w-4 h-4 text-blue-500" />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <Link
+              to="/tags"
+              onClick={closeContextMenu}
+              className="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 py-1.5 rounded transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              新建标签
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );

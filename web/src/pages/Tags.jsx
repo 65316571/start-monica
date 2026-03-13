@@ -1,27 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Plus, Trash, Tag, Edit, Save, X, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award } from 'lucide-react';
+import { Plus, Trash, Tag, Edit, Save, X, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award, Camera, Image, Film, Phone, Mail, MessageCircle, Gamepad2, Dumbbell, Plane, Car, Bike, Trees, Flower2, PawPrint, Utensils, Cake, Wine, Shield, GraduationCap, Building2, Compass, Sparkles, Crown, Palette, PenTool, Laptop, Smartphone, Headphones, Mic, Bookmark, Flag, Timer, Wrench, Rocket } from 'lucide-react';
 
 const ICONS = {
-  Tag, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award
+  Tag, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award, Camera, Image, Film, Phone, Mail, MessageCircle, Gamepad2, Dumbbell, Plane, Car, Bike, Trees, Flower2, PawPrint, Utensils, Cake, Wine, Shield, GraduationCap, Building2, Compass, Sparkles, Crown, Palette, PenTool, Laptop, Smartphone, Headphones, Mic, Bookmark, Flag, Timer, Wrench, Rocket
 };
 
+const ICON_GROUPS = [
+  {
+    name: '基础',
+    icons: ['Tag', 'Bookmark', 'Flag', 'Star', 'Heart', 'Sparkles', 'Crown', 'Award']
+  },
+  {
+    name: '人物与地点',
+    icons: ['User', 'Users', 'Home', 'Building2', 'Globe', 'MapPin', 'Compass', 'Shield']
+  },
+  {
+    name: '学习与工作',
+    icons: ['Book', 'GraduationCap', 'Briefcase', 'PenTool', 'Palette', 'Laptop', 'Smartphone', 'Wrench']
+  },
+  {
+    name: '媒体与通讯',
+    icons: ['Camera', 'Image', 'Film', 'Music', 'Mic', 'Headphones', 'Phone', 'Mail', 'MessageCircle']
+  },
+  {
+    name: '生活与兴趣',
+    icons: ['Coffee', 'Utensils', 'Cake', 'Wine', 'Gamepad2', 'Dumbbell', 'Gift', 'Activity']
+  },
+  {
+    name: '出行与自然',
+    icons: ['Plane', 'Car', 'Bike', 'Trees', 'Flower2', 'PawPrint', 'Sun', 'Moon', 'Cloud']
+  },
+  {
+    name: '能量与效率',
+    icons: ['Zap', 'Timer', 'Rocket']
+  }
+];
+
 const IconSelector = ({ selected, onSelect, color }) => {
+  const [activeGroup, setActiveGroup] = useState(ICON_GROUPS[0].name);
+  const currentGroup = ICON_GROUPS.find((group) => group.name === activeGroup) || ICON_GROUPS[0];
+
   return (
-    <div className="grid grid-cols-5 gap-2 mt-2 p-2 border rounded-md dark:border-gray-600 max-h-40 overflow-y-auto">
-      {Object.entries(ICONS).map(([name, Icon]) => (
-        <button
-          key={name}
-          type="button"
-          onClick={() => onSelect(name)}
-          className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-center items-center ${
-            selected === name ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''
-          }`}
-          title={name}
-        >
-          <Icon className="w-5 h-5" style={{ color: selected === name ? color : 'currentColor' }} />
-        </button>
-      ))}
+    <div className="mt-2 p-3 border rounded-md dark:border-gray-600 space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {ICON_GROUPS.map((group) => (
+          <button
+            key={group.name}
+            type="button"
+            onClick={() => setActiveGroup(group.name)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              activeGroup === group.name
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            {group.name}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">{currentGroup.name}</div>
+        <div className="grid grid-cols-5 gap-2">
+          {currentGroup.icons.map((name) => {
+            const Icon = ICONS[name];
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => onSelect(name)}
+                className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex justify-center items-center ${
+                  selected === name ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''
+                }`}
+                title={name}
+              >
+                <Icon className="w-5 h-5" style={{ color: selected === name ? color : 'currentColor' }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

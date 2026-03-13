@@ -32,7 +32,7 @@ const getOssClient = () => {
 // 获取图片列表
 router.get('/', async (req, res) => {
   try {
-    const { search, tag } = req.query;
+    const { search, tag, eventId, unlinked } = req.query;
     let query = `
       SELECT 
         i.*,
@@ -64,6 +64,15 @@ router.get('/', async (req, res) => {
         )
       `);
       params.push(tag);
+    }
+
+    if (eventId) {
+      conditions.push(`i.event_id = $${params.length + 1}`);
+      params.push(eventId);
+    }
+
+    if (unlinked === 'true') {
+      conditions.push(`i.event_id IS NULL`);
     }
 
     if (conditions.length > 0) {
@@ -248,12 +257,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         url = url.replace('http://', 'https://');
     }
 
-    // 保存到数据库
-    // 我们把 objectName 也存入数据库的一个新列或者利用现有的列？
-    // 为了简单，我们只存 url。删除时再解析。
+    // 保存到数据库，支持关联事件
+    const { eventId } = req.body;
     const insertResult = await pool.query(
-      'INSERT INTO images (url, filename, size, mime_type) VALUES ($1, $2, $3, $4) RETURNING *',
-      [url, req.file.originalname, req.file.size, req.file.mimetype]
+      'INSERT INTO images (url, filename, size, mime_type, event_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [url, req.file.originalname, req.file.size, req.file.mimetype, eventId || null]
     );
 
     res.json(insertResult.rows[0]);
@@ -296,6 +304,62 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting image:', error);
     res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
+// 关联图片到事件（从图片库选择）
+router.post('/:id/link-event', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { eventId } = req.body;
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+
+    // 检查图片是否存在
+    const imageCheck = await pool.query('SELECT * FROM images WHERE id = $1', [id]);
+    if (imageCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // 检查事件是否存在
+    const eventCheck = await pool.query('SELECT * FROM events WHERE id = $1', [eventId]);
+    if (eventCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    // 更新图片关联的事件
+    const result = await pool.query(
+      'UPDATE images SET event_id = $1 WHERE id = $2 RETURNING *',
+      [eventId, id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error linking image to event:', error);
+    res.status(500).json({ error: 'Failed to link image to event' });
+  }
+});
+
+// 解除图片与事件的关联
+router.post('/:id/unlink-event', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'UPDATE images SET event_id = NULL WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error unlinking image from event:', error);
+    res.status(500).json({ error: 'Failed to unlink image from event' });
   }
 });
 

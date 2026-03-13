@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { X, Plus, Trash, Search, Check } from 'lucide-react';
+import { X, Plus, Trash, Search, Check, Image as ImageIcon, Upload, Link } from 'lucide-react';
 
 const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
   const [formData, setFormData] = useState({
@@ -10,15 +10,23 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
     location: '',
     description: '',
   });
-  const [selectedPeople, setSelectedPeople] = useState([]); // Array of person objects {id, name}
+  const [selectedPeople, setSelectedPeople] = useState([]);
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('all');
-  const [peopleResults, setPeopleResults] = useState([]);
   const [tags, setTags] = useState([]);
   const [personTagsMap, setPersonTagsMap] = useState({});
+  
+  // Image management states
+  const [eventImages, setEventImages] = useState([]);
+  const [showImageSelector, setShowImageSelector] = useState(false);
+  const [availableImages, setAvailableImages] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageSelectorTagFilter, setImageSelectorTagFilter] = useState('');
+  const [imageSelectorSearch, setImageSelectorSearch] = useState('');
+  const [selectedImagesInModal, setSelectedImagesInModal] = useState([]);
 
   const isEditMode = !!initialData;
 
@@ -33,11 +41,15 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
         location: initialData.location || '',
         description: initialData.description || '',
       });
-      // Assuming initialData comes with participants or we fetch them
+      // 加载参与人
       if (initialData.event_participants) {
         setSelectedPeople(initialData.event_participants.map(ep => ep.people));
       } else {
         fetchParticipants(initialData.id);
+      }
+      // 加载事件图片
+      if (initialData.images) {
+        setEventImages(initialData.images);
       }
     }
   }, [initialData]);
@@ -175,10 +187,19 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
         const { error: partError } = await api.eventParticipants.create(participantsData);
 
         if (partError) throw partError;
-        
-        // Update Relationships (Only on create for now to avoid complexity of reducing strength on remove)
-        if (!isEditMode) {
-            await updateRelationships(selectedPeople.map(p => p.id));
+      }
+      
+      // Update Relationships
+      if (!isEditMode && selectedPeople.length > 0) {
+        await updateRelationships(selectedPeople.map(p => p.id));
+      }
+
+      // 关联图片（新建模式：之前上传但未关联的图片现在需要关联）
+      if (!isEditMode && eventImages.length > 0) {
+        for (const image of eventImages) {
+          if (!image.event_id) {
+            await api.images.linkToEvent(image.id, eventId);
+          }
         }
       }
 
@@ -198,6 +219,116 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
     !selectedPeople.find(sp => sp.id === p.id) && 
     p.name.toLowerCase().includes(peopleSearch.toLowerCase())
   );
+
+  // Image management functions
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      // 如果是编辑模式，直接关联到当前事件
+      const eventId = isEditMode ? initialData.id : null;
+      const { data, error } = await api.images.upload(file, eventId);
+      
+      if (error) throw error;
+      
+      if (data) {
+        setEventImages([...eventImages, data]);
+      }
+    } catch (err) {
+      setError('上传图片失败: ' + err.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const loadAvailableImages = async () => {
+    try {
+      const params = { unlinked: 'true' };
+      if (imageSelectorTagFilter) params.tag = imageSelectorTagFilter;
+      if (imageSelectorSearch) params.search = imageSelectorSearch;
+      
+      const { data, error } = await api.images.list(params);
+      if (error) throw error;
+      setAvailableImages(data || []);
+    } catch (err) {
+      console.error('获取图片失败:', err);
+    }
+  };
+
+  // 当筛选条件变化时重新加载图片
+  useEffect(() => {
+    if (showImageSelector) {
+      loadAvailableImages();
+    }
+  }, [imageSelectorTagFilter, imageSelectorSearch, showImageSelector]);
+
+  const openImageSelector = async () => {
+    setShowImageSelector(true);
+    setImageSelectorTagFilter('');
+    setImageSelectorSearch('');
+    setSelectedImagesInModal([]);
+    await loadAvailableImages();
+  };
+
+  const closeImageSelector = () => {
+    setShowImageSelector(false);
+  };
+
+  const saveSelectedImages = async () => {
+    if (selectedImagesInModal.length === 0) {
+      closeImageSelector();
+      return;
+    }
+
+    if (!isEditMode) {
+      // 新建模式：先添加到列表，保存时再关联
+      setEventImages([...eventImages, ...selectedImagesInModal]);
+      closeImageSelector();
+      return;
+    }
+
+    // 编辑模式：批量关联到事件
+    try {
+      for (const image of selectedImagesInModal) {
+        const { error } = await api.images.linkToEvent(image.id, initialData.id);
+        if (error) throw error;
+      }
+      // 刷新事件图片列表
+      const { data } = await api.images.list({ eventId: initialData.id });
+      if (data) setEventImages(data);
+      closeImageSelector();
+    } catch (err) {
+      setError('关联图片失败: ' + err.message);
+    }
+  };
+
+  const toggleImageSelection = (image) => {
+    const isSelected = selectedImagesInModal.some(img => img.id === image.id);
+    if (isSelected) {
+      setSelectedImagesInModal(selectedImagesInModal.filter(img => img.id !== image.id));
+    } else {
+      setSelectedImagesInModal([...selectedImagesInModal, image]);
+    }
+  };
+
+  const removeImage = async (imageId) => {
+    if (!isEditMode) {
+      // 新建模式：仅从列表移除
+      setEventImages(eventImages.filter(img => img.id !== imageId));
+      return;
+    }
+
+    // 编辑模式：解除关联
+    try {
+      const { error } = await api.images.unlinkFromEvent(imageId);
+      if (error) throw error;
+      setEventImages(eventImages.filter(img => img.id !== imageId));
+    } catch (err) {
+      setError('移除图片失败: ' + err.message);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 transition-opacity">
@@ -354,6 +485,197 @@ const EventForm = ({ onClose, onEventUpdated, initialData = null }) => {
               </div>
             </div>
           </div>
+
+          {/* Image Management Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              相关照片
+            </label>
+            
+            {/* Image Gallery */}
+            {eventImages.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {eventImages.map((image) => (
+                  <div key={image.id} className="relative group aspect-square">
+                    <img
+                      src={image.url}
+                      alt={image.filename}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(image.id)}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Image Actions */}
+            <div className="flex gap-2">
+              <label className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadingImage ? '上传中...' : '上传照片'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={uploadingImage}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={openImageSelector}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                <Link className="h-4 w-4 mr-2" />
+                从图片库选择
+              </button>
+            </div>
+          </div>
+
+          {/* Image Selector Modal */}
+          {showImageSelector && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    选择图片 {selectedImagesInModal.length > 0 && (
+                      <span className="text-sm font-normal text-blue-600 dark:text-blue-400">
+                        (已选 {selectedImagesInModal.length} 张)
+                      </span>
+                    )}
+                  </h3>
+                  <button
+                    onClick={closeImageSelector}
+                    className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+                
+                {/* Filter Bar */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+                  {/* Search by filename */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="搜索照片名称..."
+                      value={imageSelectorSearch}
+                      onChange={(e) => setImageSelectorSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-colors"
+                    />
+                  </div>
+                  
+                  {/* Tag Filter */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setImageSelectorTagFilter('')}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                        !imageSelectorTagFilter
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-400'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      全部
+                    </button>
+                    {tags.map(tag => (
+                      <button
+                        type="button"
+                        key={tag.id}
+                        onClick={() => setImageSelectorTagFilter(tag.name)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${
+                          imageSelectorTagFilter === tag.name
+                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-400'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }}></span>
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="p-4 overflow-y-auto max-h-[45vh]">
+                  {availableImages.length === 0 ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                      暂无符合条件的图片
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-3">
+                      {availableImages.map((image) => {
+                        const isSelected = selectedImagesInModal.some(img => img.id === image.id);
+                        return (
+                          <div
+                            key={image.id}
+                            onClick={() => toggleImageSelection(image)}
+                            className={`cursor-pointer aspect-square relative group rounded-lg overflow-hidden transition-all ${
+                              isSelected ? 'ring-2 ring-blue-500' : ''
+                            }`}
+                          >
+                            <img
+                              src={image.url}
+                              alt={image.filename}
+                              className="w-full h-full object-cover transition-all group-hover:opacity-90"
+                            />
+                            {/* Selection Checkmark */}
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
+                                <Check className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                            {/* Image Tags Preview */}
+                            {image.tags && image.tags.length > 0 && (
+                              <div className="absolute bottom-1 left-1 right-1 flex flex-wrap gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {image.tags.slice(0, 3).map(tag => (
+                                  <span 
+                                    key={tag.id}
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: tag.color }}
+                                    title={tag.name}
+                                  />
+                                ))}
+                                {image.tags.length > 3 && (
+                                  <span className="text-[8px] text-white bg-black/50 rounded px-1">
+                                    +{image.tags.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Bottom Action Bar */}
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    点击多张图片可多选
+                  </span>
+                  <button
+                    onClick={saveSelectedImages}
+                    disabled={selectedImagesInModal.length === 0}
+                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                      selectedImagesInModal.length > 0
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    关联选中的 {selectedImagesInModal.length} 张图片
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
             <button

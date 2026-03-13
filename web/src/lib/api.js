@@ -90,9 +90,10 @@ export const api = {
         }
         return request(url);
     },
-    upload: (file) => {
+    upload: (file, eventId) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (eventId) formData.append('eventId', eventId);
         return request(`${API_URL}/images/upload`, { method: 'POST', body: formData });
     },
     delete: (id) => request(`${API_URL}/images/${id}`, { method: 'DELETE' }),
@@ -103,5 +104,7 @@ export const api = {
     removeTag: (id, tagId) => request(`${API_URL}/images/${id}/tags/${tagId}`, { method: 'DELETE' }),
     batchDelete: (ids) => request(`${API_URL}/images/batch/delete`, { method: 'POST', body: JSON.stringify({ ids }) }),
     batchAddTag: (ids, tagId) => request(`${API_URL}/images/batch/tags`, { method: 'POST', body: JSON.stringify({ ids, tagId }) }),
+    linkToEvent: (id, eventId) => request(`${API_URL}/images/${id}/link-event`, { method: 'POST', body: JSON.stringify({ eventId }) }),
+    unlinkFromEvent: (id) => request(`${API_URL}/images/${id}/unlink-event`, { method: 'POST' }),
   }
 };

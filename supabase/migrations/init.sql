@@ -2,8 +2,22 @@
  -- 建表语句（已替换 extensions.uuid_generate_v4() 为 gen_random_uuid()） 
  -- 适用于原生 PostgreSQL 13+ 
  -- ============================================= 
+ -- 1. 先删除中间表/关联表（这些表引用了其他表）
+DROP TABLE IF EXISTS public.images_tags_map;
+DROP TABLE IF EXISTS public.person_tags;
+DROP TABLE IF EXISTS public.event_participants;
+DROP TABLE IF EXISTS public.relationships;
+
+-- 2. 删除引用了 events 的 images 表
+DROP TABLE IF EXISTS public.images;
+
+-- 3. 最后删除基础主表（被其他表引用的表）
+DROP TABLE IF EXISTS public.events;
+DROP TABLE IF EXISTS public.people;
+DROP TABLE IF EXISTS public.tags;
  
- CREATE TABLE IF NOT EXISTS public.events ( 
+ -- 1. 首先创建没有任何外键依赖的基础主表
+CREATE TABLE IF NOT EXISTS public.events ( 
    id uuid NOT NULL DEFAULT gen_random_uuid(), 
    name text NOT NULL, 
    event_date timestamp with time zone NULL DEFAULT now(), 
@@ -13,9 +27,9 @@
    created_at timestamp with time zone NULL DEFAULT now(), 
    updated_at timestamp with time zone NULL DEFAULT now(), 
    CONSTRAINT events_pkey PRIMARY KEY (id) 
- ); 
- 
- CREATE TABLE IF NOT EXISTS public.people ( 
+); 
+
+CREATE TABLE IF NOT EXISTS public.people ( 
    id uuid NOT NULL DEFAULT gen_random_uuid(), 
    name text NOT NULL, 
    gender text NULL, 
@@ -29,18 +43,44 @@
    city text NULL, 
    industry text NULL, 
    CONSTRAINT people_pkey PRIMARY KEY (id) 
- ); 
- 
- CREATE TABLE IF NOT EXISTS public.tags ( 
+); 
+
+CREATE TABLE IF NOT EXISTS public.tags ( 
    id uuid NOT NULL DEFAULT gen_random_uuid(), 
    name text NOT NULL, 
    created_at timestamp with time zone NULL DEFAULT now(), 
    color text NULL DEFAULT '#3b82f6'::text, 
    CONSTRAINT tags_pkey PRIMARY KEY (id), 
    CONSTRAINT tags_name_key UNIQUE (name) 
- ); 
- 
- CREATE TABLE IF NOT EXISTS public.event_participants ( 
+); 
+
+-- 2. 创建引用了 events 的 images 表
+CREATE TABLE IF NOT EXISTS public.images (
+  id serial NOT NULL,
+  url text NOT NULL,
+  filename text NOT NULL,
+  size bigint, 
+  mime_type text,
+  event_id uuid NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT images_pkey PRIMARY KEY (id),
+  CONSTRAINT images_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events (id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_images_event_id ON public.images USING btree (event_id);
+CREATE INDEX IF NOT EXISTS idx_images_created_at ON public.images USING btree (created_at DESC NULLS FIRST);
+
+-- 3. 最后创建复杂的关联表（这些表依赖于上面所有的表）
+CREATE TABLE IF NOT EXISTS public.images_tags_map (
+  image_id integer NOT NULL,
+  tag_id uuid NOT NULL,
+  created_at timestamp with time zone NULL DEFAULT now(),
+  CONSTRAINT images_tags_map_pkey PRIMARY KEY (image_id, tag_id),
+  CONSTRAINT images_tags_map_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.images (id) ON DELETE CASCADE,
+  CONSTRAINT images_tags_map_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags (id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.event_participants ( 
    id uuid NOT NULL DEFAULT gen_random_uuid(), 
    event_id uuid NULL, 
    person_id uuid NULL, 
@@ -48,20 +88,20 @@
    created_at timestamp with time zone NULL DEFAULT now(), 
    CONSTRAINT event_participants_pkey PRIMARY KEY (id), 
    CONSTRAINT event_participants_event_id_person_id_key UNIQUE (event_id, person_id), 
-   CONSTRAINT event_participants_event_id_fkey FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE, 
-   CONSTRAINT event_participants_person_id_fkey FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE 
- ); 
- 
- CREATE TABLE IF NOT EXISTS public.person_tags ( 
+   CONSTRAINT event_participants_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events (id) ON DELETE CASCADE, 
+   CONSTRAINT event_participants_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.people (id) ON DELETE CASCADE 
+); 
+
+CREATE TABLE IF NOT EXISTS public.person_tags ( 
    person_id uuid NOT NULL, 
    tag_id uuid NOT NULL, 
    created_at timestamp with time zone NULL DEFAULT now(), 
    CONSTRAINT person_tags_pkey PRIMARY KEY (person_id, tag_id), 
-   CONSTRAINT person_tags_person_id_fkey FOREIGN KEY (person_id) REFERENCES people (id) ON DELETE CASCADE, 
-   CONSTRAINT person_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE 
- ); 
- 
- CREATE TABLE IF NOT EXISTS public.relationships ( 
+   CONSTRAINT person_tags_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.people (id) ON DELETE CASCADE, 
+   CONSTRAINT person_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags (id) ON DELETE CASCADE 
+); 
+
+CREATE TABLE IF NOT EXISTS public.relationships ( 
    id uuid NOT NULL DEFAULT gen_random_uuid(), 
    person_a_id uuid NULL, 
    person_b_id uuid NULL, 
@@ -71,12 +111,11 @@
    created_at timestamp with time zone NULL DEFAULT now(), 
    updated_at timestamp with time zone NULL DEFAULT now(), 
    CONSTRAINT relationships_pkey PRIMARY KEY (id), 
-   CONSTRAINT relationships_person_a_id_person_b_id_key UNIQUE (person_a_id, person_b_id), 
-   CONSTRAINT relationships_person_a_id_fkey FOREIGN KEY (person_a_id) REFERENCES people (id) ON DELETE CASCADE, 
-   CONSTRAINT relationships_person_b_id_fkey FOREIGN KEY (person_b_id) REFERENCES people (id) ON DELETE CASCADE, 
-   CONSTRAINT person_order CHECK ((person_a_id < person_b_id)) 
- ); 
- 
+   CONSTRAINT relationships_person_a_id_person_b_id_key UNIQUE (person_a_id, person_b_id),
+   CONSTRAINT relationships_person_a_id_fkey FOREIGN KEY (person_a_id) REFERENCES public.people (id) ON DELETE CASCADE,
+   CONSTRAINT relationships_person_b_id_fkey FOREIGN KEY (person_b_id) REFERENCES public.people (id) ON DELETE CASCADE,
+   CONSTRAINT person_order CHECK ((person_a_id < person_b_id))
+);
  -- ============================================= 
  -- 数据插入（注意顺序：先插入被引用的表） 
  -- ============================================= 

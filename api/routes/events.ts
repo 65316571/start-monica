@@ -3,7 +3,7 @@ import pool from '../db.js';
 
 const router = Router();
 
-// Get all events with participants and their tags
+// Get all events with participants, their tags, and images
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -25,7 +25,21 @@ router.get('/', async (req, res) => {
             )
           ) FILTER (WHERE p.id IS NOT NULL), 
           '[]'
-        ) AS event_participants
+        ) AS event_participants,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', img.id,
+                'url', img.url,
+                'filename', img.filename
+              )
+            )
+            FROM images img
+            WHERE img.event_id = e.id
+          ),
+          '[]'
+        ) AS images
       FROM events e
       LEFT JOIN event_participants ep ON e.id = ep.event_id
       LEFT JOIN people p ON ep.person_id = p.id
@@ -38,7 +52,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get a single event
+// Get a single event with participants, tags, and images
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,7 +75,21 @@ router.get('/:id', async (req, res) => {
             )
           ) FILTER (WHERE p.id IS NOT NULL), 
           '[]'
-        ) AS event_participants
+        ) AS event_participants,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', img.id,
+                'url', img.url,
+                'filename', img.filename
+              )
+            )
+            FROM images img
+            WHERE img.event_id = e.id
+          ),
+          '[]'
+        ) AS images
       FROM events e
       LEFT JOIN event_participants ep ON e.id = ep.event_id
       LEFT JOIN people p ON ep.person_id = p.id
