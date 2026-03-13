@@ -340,19 +340,19 @@ const LifeTimeline = () => {
                         <div className="absolute -top-6 w-full text-center text-xs font-bold text-gray-500 dark:text-gray-400">{tick.label}</div>
                         
                         {/* Event Stack */}
-                        <div className="flex flex-col items-center pt-8 space-y-2 w-full px-1">
+                        <div className="flex flex-col items-center justify-evenly h-full w-full px-1 py-8">
                             {groupedEvents[index] && groupedEvents[index].map((event, i) => (
                                 <div 
                                     key={event.id}
                                     onClick={() => handleEventClick(event.id)}
-                                    className="w-full text-center group relative cursor-pointer"
+                                    className="w-full flex flex-col items-center text-center group relative cursor-pointer py-1"
                                     title={`${format(new Date(event.event_date), 'yyyy-MM-dd')} ${event.name} - ${event.description || ''}`}
                                 >
                                     <div className={`mx-auto w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 shadow-sm ${
                                         event.type === 'milestone' ? 'bg-red-500 w-4 h-4' : 'bg-blue-500'
                                     }`}></div>
                                     
-                                    <div className="mt-1 text-xs text-gray-700 dark:text-gray-200 font-medium truncate w-full bg-white/60 dark:bg-gray-800/60 rounded px-1 backdrop-blur-[1px] hover:bg-white dark:hover:bg-gray-800 hover:shadow-sm hover:z-50 hover:whitespace-normal hover:absolute hover:w-32 hover:left-1/2 hover:-translate-x-1/2 transition-all">
+                                    <div className="mt-1 text-xs text-gray-700 dark:text-gray-200 font-medium truncate max-w-full bg-white/60 dark:bg-gray-800/60 rounded px-1 backdrop-blur-[1px] group-hover:bg-white dark:group-hover:bg-gray-800 group-hover:shadow-sm group-hover:z-50 group-hover:whitespace-normal group-hover:w-32 transition-all pointer-events-none">
                                         {format(new Date(event.event_date), 'MM-dd')} {event.name}
                                     </div>
                                 </div>
