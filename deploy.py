@@ -4,8 +4,8 @@ import shutil
 import subprocess
 import sys
 
-PROJECT_DIR = r"C:\Data\Project\Local\start-monica\start-monica"
-OUTPUT_DIR  = r"C:\Data\Project\Local\start-monica\start-monica\deploy"
+PROJECT_DIR = r"C:\Data\Project\Local\start-monica"
+OUTPUT_DIR  = r"C:\Data\Project\Local\start-monica\deploy"
 
 print("========================================")
 print("    start-monica 一键打包脚本")

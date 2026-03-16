@@ -234,7 +234,11 @@ const DataManagement = () => {
   const handleExport = async () => {
     setLoading(true);
     try {
-      const { data } = await api.data.export();
+      const { data, error } = await api.data.export();
+      if (error) throw error;
+      if (!data || typeof data !== 'object') {
+        throw new Error('导出接口未返回有效数据');
+      }
 
       const exportData = {
         version: 1,
@@ -255,7 +259,7 @@ const DataManagement = () => {
 
     } catch (error) {
       console.error('Export failed:', error);
-      alert('导出失败');
+      alert(`导出失败: ${error.message}`);
     } finally {
       setLoading(false);
     }
