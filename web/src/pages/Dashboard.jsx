@@ -24,8 +24,18 @@ const Dashboard = () => {
   // Settings & Filters
   const [showGraph, setShowGraph] = useState(true);
   const [colorByTag, setColorByTag] = useState(true);
-  const [selectedTags, setSelectedTags] = useState(['all']); // Changed to array
+  const [selectedTags, setSelectedTags] = useState(['all']);
   const [availableTags, setAvailableTags] = useState([]);
+  const [relationshipMode, setRelationshipMode] = useState('group'); // 'real' | 'group'
+  
+  // Show Create Form State
+  const [showCreateRel, setShowCreateRel] = useState(false);
+  
+  // Relationship Creation State
+  const [selectedPersonA, setSelectedPersonA] = useState('');
+  const [selectedPersonB, setSelectedPersonB] = useState('');
+  const [selectedRelType, setSelectedRelType] = useState('');
+  const [relationshipTypes, setRelationshipTypes] = useState([]);
   
   // Clustering State
   const [expandedClusters, setExpandedClusters] = useState(new Set());
@@ -51,6 +61,11 @@ const Dashboard = () => {
     }
   }, [rawGraphData, selectedTags, colorByTag, expandedClusters]);
 
+  // Refetch data when relationshipMode changes
+  useEffect(() => {
+    fetchData();
+  }, [relationshipMode]);
+
   useEffect(() => {
     // Update dimensions on resize
     const handleResize = () => {
@@ -75,8 +90,16 @@ const Dashboard = () => {
       // Fetch stats
       const { data: people } = await api.people.list();
       const { data: events } = await api.events.list();
-      const { data: relationships } = await api.relationships.list();
       const { data: personTags } = await api.personTags.list();
+
+      // 根据关系模式获取关系数据
+      let relationships = [];
+      if (relationshipMode === 'real') {
+        // 真实关系模式：只获取 relationships 表中 relationship_kind = 'real' 的记录
+        const { data: realRels } = await api.relationships.list({ relationship_kind: 'real' });
+        if (realRels) relationships = realRels;
+      }
+      // 群组关系模式：不获取 relationships 表数据，只从 person_tags 推导
 
       setStats({
         people: people?.length || 0,
@@ -120,8 +143,8 @@ const Dashboard = () => {
         let links = [];
         let totalConnections = 0;
 
-        // 1. Add implicit relationships based on tags (Within the same tag group)
-        if (personTags) {
+        // 1. Add implicit relationships based on tags (group mode or both mode)
+        if ((relationshipMode === 'group' || relationshipMode === 'both') && personTags) {
             const tagGroups = {};
             personTags.forEach(pt => {
                 if (!pt.tags) return;
@@ -155,7 +178,8 @@ const Dashboard = () => {
                             isTag: true,
                             tagName: group.name,
                             color: group.color || stringToColor(group.name),
-                            icon: group.icon
+                            icon: group.icon,
+                            relationshipKind: 'group'
                         });
                         totalConnections++;
                     }
@@ -163,19 +187,36 @@ const Dashboard = () => {
             });
         }
 
-        // 2. Add explicit relationships
-        if (relationships) {
+        // 2. Add explicit relationships from relationships table (real mode or both mode)
+        if ((relationshipMode === 'real' || relationshipMode === 'both') && relationships) {
             relationships.forEach(r => {
+                // 真实关系使用 type 字段自动生成颜色
+                const typeColor = stringToColor(r.type || '关系');
                 links.push({
                     source: r.person_a_id,
                     target: r.person_b_id,
                     value: r.strength || 1,
                     type: 'explicit',
                     label: r.type || '关系',
-                    color: '#9ca3af'
+                    color: typeColor,
+                    relationshipKind: r.relationship_kind || 'real'
                 });
                 totalConnections++;
             });
+        }
+        
+        // 真实关系模式下获取 relationship 类型的标签作为筛选选项
+        if (relationshipMode === 'real') {
+            const { data: relTags } = await api.tags.list('relationship');
+            console.log('Relationship tags from API:', relTags);
+            if (relTags) {
+                const filteredTags = relTags.filter(t => t.tag_type === 'relationship');
+                console.log('Filtered relationship tags:', filteredTags);
+                setAvailableTags(filteredTags.map(t => t.name));
+            } else {
+                setAvailableTags([]);
+            }
+            setSelectedTags(['all']);
         }
         
         setStats(prev => ({ ...prev, relationships: totalConnections }));
@@ -483,6 +524,60 @@ const Dashboard = () => {
     }
   };
 
+  // Fetch relationship types when in real mode
+  useEffect(() => {
+    if (relationshipMode === 'real') {
+      fetchRelationshipTypes();
+    }
+  }, [relationshipMode]);
+
+  const fetchRelationshipTypes = async () => {
+    const { data } = await api.tags.list('relationship');
+    if (data) setRelationshipTypes(data);
+  };
+
+  const handleCreateRelationship = async () => {
+    if (!selectedPersonA || !selectedPersonB || !selectedRelType) {
+      alert('请选择两个人物和关系类型');
+      return;
+    }
+    if (selectedPersonA === selectedPersonB) {
+      alert('不能选择同一个人物');
+      return;
+    }
+
+    try {
+      // 确保 person_a_id < person_b_id
+      const personA = selectedPersonA < selectedPersonB ? selectedPersonA : selectedPersonB;
+      const personB = selectedPersonA < selectedPersonB ? selectedPersonB : selectedPersonA;
+      
+      const relType = relationshipTypes.find(t => t.id === selectedRelType);
+      
+      await api.relationships.create({
+        person_a_id: personA,
+        person_b_id: personB,
+        type: relType?.name || '关系',
+        strength: 1,
+        source: 'manual',
+        relationship_kind: 'real'
+      });
+      
+      // 刷新数据
+      fetchData();
+      
+      // 重置选择
+      setSelectedPersonA('');
+      setSelectedPersonB('');
+      setSelectedRelType('');
+      setShowCreateRel(false);
+      
+      alert('关系创建成功');
+    } catch (err) {
+      console.error('Error creating relationship:', err);
+      alert('创建失败: ' + err.message);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 h-full flex flex-col">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">仪表盘</h1>
@@ -533,6 +628,44 @@ const Dashboard = () => {
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">人际关系网络</h3>
             
             <div className="flex items-center space-x-4">
+                {/* Relationship Mode Toggle */}
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">关系模式:</span>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                        <button
+                            onClick={() => setRelationshipMode('group')}
+                            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                relationshipMode === 'group'
+                                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                            }`}
+                        >
+                            群组关系
+                        </button>
+                        <button
+                            onClick={() => setRelationshipMode('real')}
+                            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                relationshipMode === 'real'
+                                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                            }`}
+                        >
+                            真实关系
+                        </button>
+                    </div>
+                </div>
+
+                {/* Create Relationship Button - Only in Real Mode */}
+                {relationshipMode === 'real' && (
+                    <button
+                        onClick={() => setShowCreateRel(!showCreateRel)}
+                        className="flex items-center px-3 py-1.5 text-sm text-orange-600 dark:text-purple-400 bg-orange-50 dark:bg-purple-900/30 hover:bg-orange-100 dark:hover:bg-purple-900/50 rounded-md border border-orange-200 dark:border-purple-800 transition-colors"
+                    >
+                        <Heart className="h-3.5 w-3.5 mr-1.5" />
+                        {showCreateRel ? '取消' : '添加关系'}
+                    </button>
+                )}
+
                 {/* Reset Button */}
                 {expandedClusters.size > 0 && (
                     <button 
@@ -589,6 +722,59 @@ const Dashboard = () => {
                 </div>
             </div>
           </div>
+
+          {/* Relationship Creation Form - Real Mode */}
+          {showCreateRel && relationshipMode === 'real' && (
+            <div className="px-6 py-4 bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">创建关系:</span>
+                
+                <select
+                  value={selectedPersonA}
+                  onChange={(e) => setSelectedPersonA(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">选择人物 A</option>
+                  {graphData.nodes.filter(n => !n.isCluster).map(node => (
+                    <option key={node.id} value={node.id}>{node.name}</option>
+                  ))}
+                </select>
+
+                <span className="text-gray-500">→</span>
+
+                <select
+                  value={selectedPersonB}
+                  onChange={(e) => setSelectedPersonB(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">选择人物 B</option>
+                  {graphData.nodes.filter(n => !n.isCluster).map(node => (
+                    <option key={node.id} value={node.id}>{node.name}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedRelType}
+                  onChange={(e) => setSelectedRelType(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">选择关系类型</option>
+                  {relationshipTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleCreateRelationship}
+                  disabled={!selectedPersonA || !selectedPersonB || !selectedRelType}
+                  className="px-4 py-1.5 text-sm text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
+                >
+                  创建
+                </button>
+              </div>
+            </div>
+          )}
+
           <div ref={containerRef} className="flex-1 relative min-h-[500px]">
             {!loading && graphData.nodes.length > 0 ? (
               <ForceGraph2D
@@ -599,15 +785,26 @@ const Dashboard = () => {
                 nodeLabel="name"
                 nodeAutoColorBy={null}
                 linkCurvature="curvature"
-              linkWidth={link => link.isTag ? 1 : Math.sqrt(link.value)}
-              linkColor={link => {
-                if (!link.isTag) return '#9ca3af'; // Explicit links always gray
-                return colorByTag ? link.color : '#93c5fd'; // Color by tag or default blue
-              }}
-              linkLabel={link => link.label}
-              linkDirectionalParticles={2}
+                linkWidth={link => link.isTag ? 1 : Math.sqrt(link.value)}
+                linkColor={link => {
+                  if (link.relationshipKind === 'real') return link.color;
+                  if (!link.isTag) return '#9ca3af';
+                  return colorByTag ? link.color : '#93c5fd';
+                }}
+                linkLabel={link => link.label}
+                linkDirectionalParticles={2}
                 linkDirectionalParticleSpeed={d => d.value * 0.001}
                 onNodeClick={handleNodeClick}
+                d3Force={{
+                  charge: (force) => force.strength(-400).distanceMax(800),
+                  collide: (force) => force.radius(node => {
+                    // 根据节点名称长度计算碰撞半径（每个字符约14px + padding）
+                    const nameLength = (node.name || '').length;
+                    return nameLength * 15 + 60;
+                  }).strength(0.9),
+                  link: (force) => force.distance(200).strength(0.2)
+                }}
+                warmupTicks={100}
                 nodeCanvasObject={(node, ctx, globalScale) => {
                   const label = node.name;
                   const fontSize = (node.isCluster ? 14 : 12) / globalScale;

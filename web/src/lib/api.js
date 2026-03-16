@@ -40,7 +40,11 @@ export const api = {
     delete: (id) => request(`${API_URL}/events/${id}`, { method: 'DELETE' }),
   },
   tags: {
-    list: () => request(`${API_URL}/tags`),
+    list: (tagType) => {
+        let url = `${API_URL}/tags`;
+        if (tagType) url += `?tag_type=${tagType}`;
+        return request(url);
+    },
     create: (data) => request(`${API_URL}/tags`, { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`${API_URL}/tags/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`${API_URL}/tags/${id}`, { method: 'DELETE' }),

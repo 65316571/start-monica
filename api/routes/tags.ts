@@ -6,7 +6,17 @@ const router = Router();
 // Get all tags
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM tags ORDER BY name ASC');
+    const { tag_type } = req.query;
+    let query = 'SELECT * FROM tags';
+    const params = [];
+    
+    if (tag_type) {
+      query += ' WHERE tag_type = $1';
+      params.push(tag_type);
+    }
+    
+    query += ' ORDER BY name ASC';
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -16,19 +26,19 @@ router.get('/', async (req, res) => {
 // Create a tag
 router.post('/', async (req, res) => {
   try {
-    const { id, name, color, icon } = req.body;
+    const { id, name, color, icon, tag_type } = req.body;
     let query, params;
 
     if (id) {
-        query = `INSERT INTO tags (id, name, color, icon) 
-                 VALUES ($1, $2, $3, $4) 
+        query = `INSERT INTO tags (id, name, color, icon, tag_type) 
+                 VALUES ($1, $2, $3, $4, $5) 
                  ON CONFLICT (id) DO UPDATE 
-                 SET name = EXCLUDED.name, color = EXCLUDED.color, icon = EXCLUDED.icon
+                 SET name = EXCLUDED.name, color = EXCLUDED.color, icon = EXCLUDED.icon, tag_type = EXCLUDED.tag_type
                  RETURNING *`;
-        params = [id, name, color, icon];
+        params = [id, name, color, icon, tag_type !== undefined ? tag_type : 'person'];
     } else {
-        query = `INSERT INTO tags (name, color, icon) VALUES ($1, $2, $3) RETURNING *`;
-        params = [name, color, icon];
+        query = `INSERT INTO tags (name, color, icon, tag_type) VALUES ($1, $2, $3, $4) RETURNING *`;
+        params = [name, color, icon, tag_type !== undefined ? tag_type : 'person'];
     }
 
     const result = await pool.query(query, params);
@@ -42,10 +52,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, color, icon } = req.body;
+    const { name, color, icon, tag_type } = req.body;
     const result = await pool.query(
-      `UPDATE tags SET name = $1, color = $2, icon = $3 WHERE id = $4 RETURNING *`,
-      [name, color, icon, id]
+      `UPDATE tags SET name = $1, color = $2, icon = $3, tag_type = $4 WHERE id = $5 RETURNING *`,
+      [name, color, icon, tag_type !== undefined ? tag_type : 'person', id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Tag not found' });
