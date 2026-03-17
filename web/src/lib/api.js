@@ -79,6 +79,7 @@ export const api = {
     },
     create: (data) => request(`${API_URL}/relationships`, { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`${API_URL}/relationships/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => request(`${API_URL}/relationships/${id}`, { method: 'DELETE' }),
   },
   data: {
     clear: () => request(`${API_URL}/data/clear`, { method: 'POST' }),

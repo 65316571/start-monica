@@ -39,6 +39,13 @@ const Dashboard = () => {
   
   // Clustering State
   const [expandedClusters, setExpandedClusters] = useState(new Set());
+  
+  // Drag Connection State
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectingSourceNode, setConnectingSourceNode] = useState(null);
+  const [connectingRelType, setConnectingRelType] = useState(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [showRelTypeModal, setShowRelTypeModal] = useState(false);
 
   useEffect(() => {
     const storedShowGraph = localStorage.getItem('monica_show_graph');
@@ -95,11 +102,11 @@ const Dashboard = () => {
       // 根据关系模式获取关系数据
       let relationships = [];
       if (relationshipMode === 'real') {
-        // 真实关系模式：只获取 relationships 表中 relationship_kind = 'real' 的记录
+        // 关系连接模式：只获取 relationships 表中 relationship_kind = 'real' 的记录
         const { data: realRels } = await api.relationships.list({ relationship_kind: 'real' });
         if (realRels) relationships = realRels;
       }
-      // 群组关系模式：不获取 relationships 表数据，只从 person_tags 推导
+      // 关系分类模式：不获取 relationships 表数据，只从 person_tags 推导
 
       setStats({
         people: people?.length || 0,
@@ -190,7 +197,7 @@ const Dashboard = () => {
         // 2. Add explicit relationships from relationships table (real mode or both mode)
         if ((relationshipMode === 'real' || relationshipMode === 'both') && relationships) {
             relationships.forEach(r => {
-                // 真实关系使用 type 字段自动生成颜色
+                // 关系连接使用 type 字段自动生成颜色
                 const typeColor = stringToColor(r.type || '关系');
                 links.push({
                     source: r.person_a_id,
@@ -205,7 +212,7 @@ const Dashboard = () => {
             });
         }
         
-        // 真实关系模式下获取 relationship 类型的标签作为筛选选项
+        // 关系连接模式下获取 relationship 类型的标签作为筛选选项
         if (relationshipMode === 'real') {
             const { data: relTags } = await api.tags.list('relationship');
             console.log('Relationship tags from API:', relTags);
@@ -507,6 +514,12 @@ const Dashboard = () => {
   };
 
   const handleNodeClick = (node) => {
+    // 如果正在连接模式，点击目标节点完成连接
+    if (isConnecting && connectingSourceNode && connectingRelType && node.id !== connectingSourceNode.id && !node.isCluster) {
+      completeConnection(node);
+      return;
+    }
+    
     if (node.isCluster) {
         const newExpanded = new Set(expandedClusters);
         newExpanded.add(node.id);
@@ -515,6 +528,117 @@ const Dashboard = () => {
         // Navigate to person detail
         window.location.href = `/people/${node.id}`;
     }
+  };
+  
+  // 右键菜单处理
+  const handleNodeRightClick = async (node, event) => {
+    event.preventDefault();
+    if (relationshipMode !== 'real' || node.isCluster) return;
+    
+    // 显示关系类型选择弹窗
+    setConnectingSourceNode(node);
+    setShowRelTypeModal(true);
+    
+    // 获取该节点的已有关系
+    await fetchNodeRelationships(node.id);
+  };
+  
+  // 获取节点的已有关系
+  const [nodeRelationships, setNodeRelationships] = useState([]);
+  
+  const fetchNodeRelationships = async (personId) => {
+    try {
+      const { data } = await api.relationships.list({ person_id: personId });
+      if (data) {
+        // 获取关系对应的另一端人物名称
+        const enrichedData = await Promise.all(
+          data.map(async (rel) => {
+            const otherPersonId = rel.person_a_id === personId ? rel.person_b_id : rel.person_a_id;
+            const { data: personData } = await api.people.get(otherPersonId);
+            return {
+              ...rel,
+              otherPersonName: personData?.name || '未知'
+            };
+          })
+        );
+        setNodeRelationships(enrichedData);
+      } else {
+        setNodeRelationships([]);
+      }
+    } catch (err) {
+      console.error('Error fetching node relationships:', err);
+      setNodeRelationships([]);
+    }
+  };
+  
+  // 删除关系
+  const deleteRelationship = async (relId) => {
+    try {
+      await api.relationships.delete(relId);
+      // 刷新关系列表
+      if (connectingSourceNode) {
+        await fetchNodeRelationships(connectingSourceNode.id);
+      }
+      // 刷新图谱
+      fetchData();
+    } catch (err) {
+      console.error('Error deleting relationship:', err);
+      alert('删除失败: ' + err.message);
+    }
+  };
+  
+  // 开始连接
+  const startConnection = (relType) => {
+    setConnectingRelType(relType);
+    setIsConnecting(true);
+    setShowRelTypeModal(false);
+  };
+  
+  // 取消连接
+  const cancelConnection = () => {
+    setIsConnecting(false);
+    setConnectingSourceNode(null);
+    setConnectingRelType(null);
+    setMousePosition({ x: 0, y: 0 });
+  };
+  
+  // 完成连接 - 创建关系
+  const completeConnection = async (targetNode) => {
+    if (!connectingSourceNode || !connectingRelType || !targetNode) return;
+    
+    try {
+      const personA = connectingSourceNode.id < targetNode.id ? connectingSourceNode.id : targetNode.id;
+      const personB = connectingSourceNode.id < targetNode.id ? targetNode.id : connectingSourceNode.id;
+      
+      await api.relationships.create({
+        person_a_id: personA,
+        person_b_id: personB,
+        type: connectingRelType.name,
+        strength: 1,
+        source: 'manual',
+        relationship_kind: 'real'
+      });
+      
+      // 刷新数据
+      fetchData();
+    } catch (err) {
+      console.error('Error creating relationship:', err);
+      alert('创建失败: ' + err.message);
+    } finally {
+      cancelConnection();
+    }
+  };
+  
+  // 鼠标移动处理 - 更新连接线终点
+  const handleMouseMove = (event) => {
+    if (!isConnecting || !fgRef.current) return;
+    
+    const canvas = fgRef.current.canvas;
+    const rect = canvas.getBoundingClientRect();
+    setMousePosition({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    });
   };
 
   const handleResetClusters = () => {
@@ -624,102 +748,116 @@ const Dashboard = () => {
       {/* Relationship Graph */}
       {showGraph && (
         <div className="flex-1 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col transition-colors duration-200">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">人际关系网络</h3>
-            
-            <div className="flex items-center space-x-4">
-                {/* Relationship Mode Toggle */}
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">关系模式:</span>
-                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                        <button
-                            onClick={() => setRelationshipMode('group')}
-                            className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                                relationshipMode === 'group'
-                                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
-                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-                            }`}
-                        >
-                            群组关系
-                        </button>
-                        <button
-                            onClick={() => setRelationshipMode('real')}
-                            className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                                relationshipMode === 'real'
-                                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
-                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-                            }`}
-                        >
-                            真实关系
-                        </button>
-                    </div>
-                </div>
-
-                {/* Create Relationship Button - Only in Real Mode */}
-                {relationshipMode === 'real' && (
-                    <button
-                        onClick={() => setShowCreateRel(!showCreateRel)}
-                        className="flex items-center px-3 py-1.5 text-sm text-orange-600 dark:text-purple-400 bg-orange-50 dark:bg-purple-900/30 hover:bg-orange-100 dark:hover:bg-purple-900/50 rounded-md border border-orange-200 dark:border-purple-800 transition-colors"
-                    >
-                        <Heart className="h-3.5 w-3.5 mr-1.5" />
-                        {showCreateRel ? '取消' : '添加关系'}
-                    </button>
-                )}
-
-                {/* Reset Button */}
-                {expandedClusters.size > 0 && (
-                    <button 
-                        onClick={handleResetClusters}
-                        className="flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
-                    >
-                        <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                        重置视图
-                    </button>
-                )}
-
-                {/* Tag Filter */}
-                <div className="flex items-center gap-2 flex-wrap max-w-xl">
-                    <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-300">筛选:</span>
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            {/* Top Row: Fixed controls */}
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">人际关系网络</h3>
                     
-                    <button
-                        onClick={() => setSelectedTags(['all'])}
-                        className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                            selectedTags.includes('all')
-                                ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800'
-                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                        }`}
-                    >
-                        全部
-                    </button>
-
-                    {availableTags.map(tag => {
-                        const isSelected = selectedTags.includes(tag);
-                        return (
+                    {/* Relationship Mode Toggle - Fixed position */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">关系模式:</span>
+                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                             <button
-                                key={tag}
-                                onClick={() => {
-                                    let newTags;
-                                    if (isSelected) {
-                                        newTags = selectedTags.filter(t => t !== tag);
-                                        if (newTags.length === 0) newTags = ['all'];
-                                    } else {
-                                        newTags = selectedTags.filter(t => t !== 'all');
-                                        newTags.push(tag);
-                                    }
-                                    setSelectedTags(newTags);
-                                }}
-                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                                    isSelected
-                                        ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800'
-                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                                onClick={() => setRelationshipMode('group')}
+                                className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                    relationshipMode === 'group'
+                                        ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}
                             >
-                                {tag}
+                                关系分类
                             </button>
-                        );
-                    })}
+                            <button
+                                onClick={() => setRelationshipMode('real')}
+                                className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                    relationshipMode === 'real'
+                                        ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                关系连接
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Create Relationship Button - Only in Real Mode */}
+                    {relationshipMode === 'real' && (
+                        <button
+                            onClick={() => window.location.href = '/tags?mode=real'}
+                            className="flex items-center px-3 py-1.5 text-sm text-orange-600 dark:text-purple-400 bg-orange-50 dark:bg-purple-900/30 hover:bg-orange-100 dark:hover:bg-purple-900/50 rounded-md border border-orange-200 dark:border-purple-800 transition-colors"
+                        >
+                            <Heart className="h-3.5 w-3.5 mr-1.5" />
+                            添加关系
+                        </button>
+                    )}
+
+                    {/* Create Group Button - Only in Group Mode */}
+                    {relationshipMode === 'group' && (
+                        <button
+                            onClick={() => window.location.href = '/tags?mode=group'}
+                            className="flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
+                        >
+                            <Tag className="h-3.5 w-3.5 mr-1.5" />
+                            添加关系
+                        </button>
+                    )}
+
+                    {/* Reset Button */}
+                    {expandedClusters.size > 0 && (
+                        <button 
+                            onClick={handleResetClusters}
+                            className="flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                            重置视图
+                        </button>
+                    )}
                 </div>
+            </div>
+            
+            {/* Second Row: Filter tags */}
+            <div className="flex items-center gap-2 flex-wrap">
+                <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <span className="text-sm text-gray-600 dark:text-gray-300 flex-shrink-0">筛选:</span>
+                
+                <button
+                    onClick={() => setSelectedTags(['all'])}
+                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                        selectedTags.includes('all')
+                            ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800'
+                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                    }`}
+                >
+                    全部
+                </button>
+
+                {availableTags.map(tag => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                        <button
+                            key={tag}
+                            onClick={() => {
+                                let newTags;
+                                if (isSelected) {
+                                    newTags = selectedTags.filter(t => t !== tag);
+                                    if (newTags.length === 0) newTags = ['all'];
+                                } else {
+                                    newTags = selectedTags.filter(t => t !== 'all');
+                                    newTags.push(tag);
+                                }
+                                setSelectedTags(newTags);
+                            }}
+                            className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                                isSelected
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-800'
+                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                            }`}
+                        >
+                            {tag}
+                        </button>
+                    );
+                })}
             </div>
           </div>
 
@@ -903,16 +1041,124 @@ const Dashboard = () => {
                   ctx.roundRect(x, y, width, height, r);
                   ctx.fill();
                 }}
-                onNodeClick={handleNodeClick}
                 onRenderFramePost={null} // Removed separate label rendering
                 cooldownTicks={100}
                 d3VelocityDecay={0.3}
+                onNodeRightClick={handleNodeRightClick}
+                onBackgroundClick={isConnecting ? cancelConnection : null}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-gray-500">
                 {loading ? '正在加载图谱...' : '暂无足够数据展示关系网络。'}
               </div>
             )}
+            {/* Connection Line Overlay */}
+            {isConnecting && connectingSourceNode && connectingRelType && (
+              <svg className="absolute inset-0 pointer-events-none" style={{ width: dimensions.width, height: dimensions.height }}>
+                <line
+                  x1={connectingSourceNode.x}
+                  y1={connectingSourceNode.y}
+                  x2={mousePosition.x}
+                  y2={mousePosition.y}
+                  stroke={connectingRelType.color}
+                  strokeWidth={3}
+                  strokeDasharray="5,5"
+                />
+              </svg>
+            )}
+
+            {/* Connecting Mode Indicator */}
+            {isConnecting && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg pointer-events-none z-10">
+                正在连接: {connectingRelType?.name} - 点击目标节点完成连接
+                <button
+                  onClick={cancelConnection}
+                  className="ml-2 text-sm underline hover:no-underline"
+                >
+                  取消
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Relationship Type Selection Modal */}
+      {showRelTypeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowRelTypeModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-medium text-gray-900 dark:text-white mb-3">
+              {connectingSourceNode?.name}
+            </h3>
+            
+            {/* Create New Relationship Section */}
+            <div className="mb-4">
+              <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                创建新关系
+              </h4>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {relationshipTypes.length === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">暂无关系类型</p>
+                ) : (
+                  relationshipTypes.map((type) => (
+                    <button
+                      key={type.id}
+                      onClick={() => startConnection(type)}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <span className="text-sm text-gray-900 dark:text-gray-100 truncate">{type.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* Existing Relationships Section */}
+            {nodeRelationships.length > 0 && (
+              <div className="mb-4 border-t border-gray-200 dark:border-gray-700 pt-3">
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  已有关系 ({nodeRelationships.length})
+                </h4>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {nodeRelationships.map((rel) => (
+                    <div
+                      key={rel.id}
+                      className="flex items-center justify-between px-2 py-1.5 rounded-md bg-gray-50 dark:bg-gray-700/50"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: stringToColor(rel.type) }}
+                        />
+                        <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                          {rel.type} · {rel.otherPersonName}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => deleteRelationship(rel.id)}
+                        className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                        title="删除关系"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end pt-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowRelTypeModal(false)}
+                className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+              >
+                关闭
+              </button>
+            </div>
           </div>
         </div>
       )}

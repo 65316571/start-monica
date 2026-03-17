@@ -87,7 +87,14 @@ const IconSelector = ({ selected, onSelect, color }) => {
 
 const Tags = () => {
   // Mode Switch: 'group' | 'real'
-  const [tagMode, setTagMode] = useState('group'); // 'group' for person tags, 'real' for relationship types
+  // Check URL parameter for initial mode
+  const getInitialMode = () => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    return mode === 'real' ? 'real' : 'group';
+  };
+  
+  const [tagMode, setTagMode] = useState(getInitialMode()); // 'group' for person tags, 'real' for relationship types
   
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -343,14 +350,14 @@ const Tags = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">标签管理</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {tagMode === 'group' ? '创建和管理用于人物分类的群组标签。' : '创建和管理人物之间的真实关系类型。'}
+            {tagMode === 'group' ? '创建和管理用于人物分类的关系分类标签。' : '创建和管理人物之间的关系连接类型。'}
           </p>
         </div>
         
         {/* Mode Toggle Switch */}
         <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
           <span className={`text-sm font-medium ${tagMode === 'group' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
-            群组关系
+            关系分类
           </span>
           <button
             onClick={() => setTagMode(tagMode === 'group' ? 'real' : 'group')}
@@ -363,7 +370,7 @@ const Tags = () => {
             />
           </button>
           <span className={`text-sm font-medium ${tagMode === 'real' ? 'text-orange-500 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
-            真实关系
+            关系连接
           </span>
         </div>
       </div>
@@ -429,7 +436,7 @@ const Tags = () => {
           {/* Tags List Section */}
           <div className="md:col-span-2 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">现有标签 ({tags.length})</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">标签类型 ({tags.length})</h2>
             </div>
             
             {loading ? (
@@ -563,7 +570,7 @@ const Tags = () => {
           {/* Relationship Types List Section */}
           <div className="md:col-span-2 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">现有关系类型 ({relationshipTypes.length})</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">关系类型 ({relationshipTypes.length})</h2>
             </div>
             
             {relTypesLoading ? (
