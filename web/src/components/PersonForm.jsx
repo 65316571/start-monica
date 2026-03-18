@@ -53,7 +53,8 @@ const PersonForm = ({ onClose, onPersonUpdated, initialData = null }) => {
   }, [initialData]);
 
   const fetchTags = async () => {
-    const { data } = await api.tags.list();
+    // 获取人物分类标签(person类型)
+    const { data } = await api.tags.list('person');
     if (data) setAvailableTags(data);
   };
 

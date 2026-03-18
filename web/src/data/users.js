@@ -7,7 +7,7 @@ export const users = [
     username: 'hao',
     password: '65316571',
     role: 'root',
-    displayName: '管理员'
+    displayName: 'hao'
   },
   {
     id: 3,

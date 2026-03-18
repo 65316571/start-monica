@@ -25,6 +25,7 @@ const DataManagement = () => {
       const saved = sessionStorage.getItem('data_sortConfig');
       return saved ? JSON.parse(saved) : { key: 'created_at', direction: 'desc' };
   });
+  const [peopleMap, setPeopleMap] = useState({}); // 人物ID到名称的映射
   const PAGE_SIZE = 50;
 
   // Persist State
@@ -48,8 +49,8 @@ const DataManagement = () => {
       'contact_info': '联系方式',
       'avatar_url': '头像链接',
       'color': '颜色',
-      'person_a_id': '人物A ID',
-      'person_b_id': '人物B ID',
+      'person_a_id': '人物A',
+      'person_b_id': '人物B',
       'strength': '关系强度',
       'person_id': '人物 ID',
       'event_id': '事件 ID',
@@ -62,7 +63,11 @@ const DataManagement = () => {
       'identity': '身份',
       'meet_date': '相识日期',
       'province': '省份',
-      'city': '城市'
+      'city': '城市',
+      'tag_type': '标签类型',
+      'icon': '图标',
+      'source': '来源',
+      'relationship_kind': '关系类型'
   };
 
   useEffect(() => {
@@ -85,7 +90,24 @@ const DataManagement = () => {
       if (table === 'people') res = await api.people.list();
       else if (table === 'events') res = await api.events.list();
       else if (table === 'tags') res = await api.tags.list();
-      else if (table === 'relationships') res = await api.relationships.list();
+      else if (table === 'relationships') {
+          // 获取关系数据的同时获取人物数据
+          const [relationshipsRes, peopleRes] = await Promise.all([
+              api.relationships.list(),
+              api.people.list()
+          ]);
+          
+          // 构建人物ID到名称的映射
+          if (peopleRes.data) {
+              const map = {};
+              peopleRes.data.forEach(person => {
+                  map[person.id] = person.name;
+              });
+              setPeopleMap(map);
+          }
+          
+          res = relationshipsRes;
+      }
       
       const { data, error } = res;
       
@@ -138,7 +160,13 @@ const DataManagement = () => {
       if (tableLoading) return <div className="p-8 text-center text-gray-500">加载中...</div>;
       if (tableData.length === 0) return <div className="p-8 text-center text-gray-500">暂无数据</div>;
 
-      const columns = Object.keys(tableData[0]).filter(key => key !== 'id' && key !== 'user_id');
+      const columns = Object.keys(tableData[0]).filter(key => {
+          // 排除 id 和 user_id
+          if (key === 'id' || key === 'user_id') return false;
+          // 事件列表排除 event_participants 和 images
+          if (activeTab === 'events' && (key === 'event_participants' || key === 'images')) return false;
+          return true;
+      });
 
       return (
           <div className="overflow-x-auto">
@@ -189,6 +217,10 @@ const DataManagement = () => {
                                   else if (col === 'gender') {
                                       const genderMap = { 'Male': '男', 'Female': '女', 'Other': '其他' };
                                       content = genderMap[content] || content || '未知';
+                                  }
+                                  // 关系列表中替换人物ID为名称
+                                  else if (col === 'person_a_id' || col === 'person_b_id') {
+                                      content = peopleMap[content] || content;
                                   }
                                   // Handle Objects/Arrays
                                   else if (typeof content === 'object') {
