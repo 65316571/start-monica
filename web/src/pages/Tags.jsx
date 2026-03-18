@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { Plus, Trash, Tag, Edit, Save, X, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award, Camera, Image, Film, Phone, Mail, MessageCircle, Gamepad2, Dumbbell, Plane, Car, Bike, Trees, Flower2, PawPrint, Utensils, Cake, Wine, Shield, GraduationCap, Building2, Compass, Sparkles, Crown, Palette, PenTool, Laptop, Smartphone, Headphones, Mic, Bookmark, Flag, Timer, Wrench, Rocket } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const ICONS = {
   Tag, Smile, Heart, Star, Sun, Moon, Cloud, Music, Coffee, Book, Briefcase, Home, User, Users, Globe, MapPin, Zap, Activity, Gift, Award, Camera, Image, Film, Phone, Mail, MessageCircle, Gamepad2, Dumbbell, Plane, Car, Bike, Trees, Flower2, PawPrint, Utensils, Cake, Wine, Shield, GraduationCap, Building2, Compass, Sparkles, Crown, Palette, PenTool, Laptop, Smartphone, Headphones, Mic, Bookmark, Flag, Timer, Wrench, Rocket
@@ -86,6 +87,7 @@ const IconSelector = ({ selected, onSelect, color }) => {
 };
 
 const Tags = () => {
+  const { canWrite } = useAuth();
   // Mode Switch: 'group' | 'real'
   // Check URL parameter for initial mode
   const getInitialMode = () => {
@@ -379,6 +381,7 @@ const Tags = () => {
       {tagMode === 'group' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Create Tag Section */}
+          {canWrite() && (
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 h-fit transition-colors duration-200">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">添加新标签</h2>
             <form onSubmit={handleAddTag}>
@@ -432,9 +435,10 @@ const Tags = () => {
               </button>
             </form>
           </div>
+          )}
 
           {/* Tags List Section */}
-          <div className="md:col-span-2 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
+          <div className={`bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200 ${canWrite() ? 'md:col-span-2' : 'md:col-span-3'}`}>
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">标签类型 ({tags.length})</h2>
             </div>
@@ -485,6 +489,7 @@ const Tags = () => {
                           </div>
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{tag.name}</span>
                         </div>
+                        {canWrite() && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => startEdit(tag)}
@@ -501,6 +506,7 @@ const Tags = () => {
                             <Trash className="h-4 w-4" />
                           </button>
                         </div>
+                        )}
                       </>
                     )}
                   </li>
@@ -515,6 +521,7 @@ const Tags = () => {
       {tagMode === 'real' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Create Relationship Type Section */}
+          {canWrite() && (
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 h-fit transition-colors duration-200">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">添加关系类型</h2>
             <form onSubmit={handleAddRelationshipType}>
@@ -566,9 +573,10 @@ const Tags = () => {
               </button>
             </form>
           </div>
+          )}
 
           {/* Relationship Types List Section */}
-          <div className="md:col-span-2 bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
+          <div className={`bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200 ${canWrite() ? 'md:col-span-2' : 'md:col-span-3'}`}>
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">关系类型 ({relationshipTypes.length})</h2>
             </div>
@@ -620,6 +628,7 @@ const Tags = () => {
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{type.name}</span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">({type.count} 条关系)</span>
                         </div>
+                        {canWrite() && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => startEditRelType(type)}
@@ -636,6 +645,7 @@ const Tags = () => {
                             <Trash className="h-4 w-4" />
                           </button>
                         </div>
+                        )}
                       </>
                     )}
                   </li>

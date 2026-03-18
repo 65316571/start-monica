@@ -4,6 +4,7 @@ import { Upload, Trash2, Maximize2, Download, Image as ImageIcon, Search, Plus, 
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Images() {
   const [images, setImages] = useState([]);
@@ -11,6 +12,7 @@ export default function Images() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const { imageSize } = useTheme();
+  const { canWrite } = useAuth();
   
   // Search & Filter
   const [search, setSearch] = useState('');
@@ -262,6 +264,7 @@ export default function Images() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            {canWrite() && (
             <div className="relative">
               <input
                 type="file"
@@ -288,6 +291,7 @@ export default function Images() {
                 )}
               </label>
             </div>
+            )}
           </div>
         </div>
 
@@ -362,6 +366,7 @@ export default function Images() {
                 {tags.length === 0 && <div className="text-xs text-gray-500 text-center py-2">无可用标签</div>}
               </div>
             </div>
+          {canWrite() && (
             <button
               onClick={handleBatchDelete}
               className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 flex items-center gap-2"
@@ -369,6 +374,7 @@ export default function Images() {
               <Trash2 className="w-4 h-4" />
               批量删除
             </button>
+          )}
             <button
               onClick={() => { setIsSelectionMode(false); setSelectedImages(new Set()); }}
               className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -460,6 +466,8 @@ export default function Images() {
                     >
                       <Download className="w-5 h-5" />
                     </a>
+                    {canWrite() && (
+                    <>
                     <button
                       onClick={() => { setIsSelectionMode(true); toggleSelection(image.id); }}
                       className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
@@ -474,6 +482,8 @@ export default function Images() {
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
+                    </>
+                    )}
                   </div>
                 )}
               </div>
@@ -487,16 +497,17 @@ export default function Images() {
                     defaultValue={image.filename}
                     onBlur={(e) => handleRename(image.id, e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleRename(image.id, e.currentTarget.value)}
+                    disabled={!canWrite()}
                   />
                 ) : (
                   <div 
                     className="flex items-center justify-between group/title cursor-text"
-                    onDoubleClick={() => setEditingImage({ id: image.id, filename: image.filename })}
+                    onDoubleClick={() => canWrite() && setEditingImage({ id: image.id, filename: image.filename })}
                   >
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1" title={image.filename}>
                       {image.filename}
                     </p>
-                    <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover/title:opacity-100" />
+                    {canWrite() && <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover/title:opacity-100" />}
                   </div>
                 )}
                 
@@ -516,6 +527,8 @@ export default function Images() {
                       <button
                         onClick={() => handleRemoveTagFromImage(image.id, tag.id)}
                         className="ml-1 text-gray-400 hover:text-red-500 opacity-0 group-hover/tag:opacity-100"
+                        disabled={!canWrite()}
+                        style={{ visibility: canWrite() ? 'visible' : 'hidden' }}
                       >
                         ×
                       </button>

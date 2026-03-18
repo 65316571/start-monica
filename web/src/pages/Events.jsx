@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Plus, Edit, Calendar, MapPin, Users, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import EventForm from '../components/EventForm';
+import { useAuth } from '../contexts/AuthContext';
 
 const Events = () => {
   const location = useLocation();
@@ -15,6 +16,7 @@ const Events = () => {
   const [selectedMonth, setSelectedMonth] = useState(() => sessionStorage.getItem('events_selectedMonth') || 'all');
   const [years, setYears] = useState([]);
   const [sortOrder, setSortOrder] = useState(() => sessionStorage.getItem('events_sortOrder') || 'desc');
+  const { canWrite } = useAuth();
   
   // Lightbox state
   const [lightboxImage, setLightboxImage] = useState(null);
@@ -164,9 +166,11 @@ const Events = () => {
             <button 
             onClick={openAddModal}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            disabled={!canWrite()}
+            style={{ opacity: canWrite() ? 1 : 0.5 }}
             >
             <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            添加事件
+            {canWrite() ? '添加事件' : '仅管理员可添加'}
             </button>
         </div>
       </div>
@@ -232,6 +236,7 @@ const Events = () => {
                     <div className="space-y-4">
                     {groupedEvents[group].map((event) => (
                         <div key={event.id} className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow relative group">
+                        {canWrite() && (
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                             onClick={() => openEditModal(event)}
@@ -241,6 +246,7 @@ const Events = () => {
                             <Edit className="h-4 w-4" />
                             </button>
                         </div>
+                        )}
                         
                         <div className="flex flex-col md:flex-row justify-between md:items-start">
                             <div className="flex-1">
@@ -317,7 +323,7 @@ const Events = () => {
       )}
 
       {/* Add/Edit Event Modal */}
-      {isModalOpen && (
+      {isModalOpen && canWrite() && (
          <EventForm 
            onClose={() => setIsModalOpen(false)} 
            onEventUpdated={handleEventUpdated}

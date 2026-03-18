@@ -3,10 +3,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Edit, Trash, Calendar, MapPin, Users, FileText } from 'lucide-react';
 import EventForm from '../components/EventForm';
+import { useAuth } from '../contexts/AuthContext';
 
 const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +111,8 @@ const EventDetail = () => {
             </div>
           </div>
           <div className="flex gap-3">
+            {canWrite() && (
+            <>
             <button 
               onClick={() => setIsEditModalOpen(true)}
               className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
@@ -123,6 +127,8 @@ const EventDetail = () => {
               <Trash className="h-4 w-4 mr-2" />
               删除
             </button>
+            </>
+            )}
           </div>
         </div>
 
@@ -173,7 +179,7 @@ const EventDetail = () => {
       )}
 
       {/* Edit Modal */}
-      {isEditModalOpen && (
+      {isEditModalOpen && canWrite() && (
         <EventForm 
           onClose={() => setIsEditModalOpen(false)}
           onEventUpdated={handleEventUpdated}

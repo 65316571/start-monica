@@ -3,10 +3,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Edit, Trash, Calendar, User, Tag } from 'lucide-react';
 import PersonForm from '../components/PersonForm';
+import { useAuth } from '../contexts/AuthContext';
 
 const PersonDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canWrite } = useAuth();
   const [person, setPerson] = useState(null);
   const [events, setEvents] = useState([]);
   const [tags, setTags] = useState([]);
@@ -115,6 +117,8 @@ const PersonDetail = () => {
             </div>
           </div>
           <div className="flex gap-3">
+            {canWrite() && (
+            <>
             <button 
               onClick={() => setIsEditModalOpen(true)}
               className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
@@ -129,6 +133,8 @@ const PersonDetail = () => {
               <Trash className="h-4 w-4 mr-2" />
               删除
             </button>
+            </>
+            )}
           </div>
         </div>
 
@@ -192,7 +198,7 @@ const PersonDetail = () => {
       )}
 
       {/* Edit Modal */}
-      {isEditModalOpen && (
+      {isEditModalOpen && canWrite() && (
         <PersonForm 
           onClose={() => setIsEditModalOpen(false)}
           onPersonUpdated={handlePersonUpdated}
